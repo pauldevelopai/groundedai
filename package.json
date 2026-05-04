@@ -9,16 +9,21 @@
     "build": "next build",
     "start": "next start -p 3002",
     "migrate": "node db/migrate.js",
+    "seed": "node db/seed.js",
     "lint": "next lint"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
+    "jsonwebtoken": "^9.0.2",
     "next": "^15.0.3",
     "pg": "^8.13.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.0",
     "@types/pg": "^8.11.10",
     "@types/react": "^19.0.0",

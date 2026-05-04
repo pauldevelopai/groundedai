@@ -30,6 +30,8 @@ Source codebases (read-only references — never modify them):
 | 2026-05-04 | `surepath/.gitignore` | `.gitignore` structure | 🔴 REFERENCE | Adapted: dropped Surepath-specific paths (reports/, dashboard/, property-images/), kept the spirit. |
 | 2026-05-04 | `surepath/db.js` (S1) | `anchor/lib/db.js` — Postgres pool | 🟢 LIFT | Same shape: single `pg.Pool` from `DATABASE_URL`, `module.exports = { pool }`. Added explicit error on missing env var; added pool error handler. |
 | 2026-05-04 | `holly/server/db/migrate.js` (H3) | `anchor/db/migrate.js` + `anchor/db/migrations/001_init.sql` | 🟢 LIFT | Converted Holly's ESM to CommonJS (`require`/`module.exports`). Same pattern: read `.sql` from `migrations/`, track in `migrations` table, BEGIN/COMMIT/ROLLBACK per file. First migration creates `newsrooms`, `users`, `audit_log`. |
+| 2026-05-04 | `holly/server/middleware/auth.js` + `routes/auth.js` (H2) | `anchor/lib/auth.js` (helpers) + `anchor/app/lib/session.ts` (Next-side cookie reader) + `anchor/app/api/auth/login,logout,me/route.ts` | 🟢 LIFT | Same shape: bcryptjs hash (10 rounds), jsonwebtoken JWT (7d expiry), httpOnly cookie. Cookie name `anchor_token`. JWT_SECRET enforced ≥32 chars at use. Generic 401 on login fail (no user enumeration). last_login_at touched on success. Register endpoint deferred to Step 5 (admin-driven invites). |
+| 2026-05-04 | seed pattern from `holly/server/db/seed.js` | `anchor/db/seed.js` | 🟡 ADAPT | Idempotent seed: creates one bootstrap newsroom (`recLOCAL_DEV`) + one admin user (`admin@anchor.local` / `changeme123`). Production newsrooms come from Airtable sync; production users via admin invite. |
 
 ## Planned lifts (from Step 1 walkthrough, 2026-05-04)
 
