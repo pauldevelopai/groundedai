@@ -28,6 +28,8 @@ Source codebases (read-only references — never modify them):
 |------|------|------|------|-------|
 | 2026-05-04 | `surepath/.env.example`, `package.json` | `.env.example` shape, `"type": "commonjs"`, port allocation | 🔴 REFERENCE | No code copied. Variable naming aligned with Surepath conventions (DATABASE_URL, JWT_SECRET, ANTHROPIC_API_KEY, TWILIO_*) so muscle memory transfers. |
 | 2026-05-04 | `surepath/.gitignore` | `.gitignore` structure | 🔴 REFERENCE | Adapted: dropped Surepath-specific paths (reports/, dashboard/, property-images/), kept the spirit. |
+| 2026-05-04 | `surepath/db.js` (S1) | `anchor/lib/db.js` — Postgres pool | 🟢 LIFT | Same shape: single `pg.Pool` from `DATABASE_URL`, `module.exports = { pool }`. Added explicit error on missing env var; added pool error handler. |
+| 2026-05-04 | `holly/server/db/migrate.js` (H3) | `anchor/db/migrate.js` + `anchor/db/migrations/001_init.sql` | 🟢 LIFT | Converted Holly's ESM to CommonJS (`require`/`module.exports`). Same pattern: read `.sql` from `migrations/`, track in `migrations` table, BEGIN/COMMIT/ROLLBACK per file. First migration creates `newsrooms`, `users`, `audit_log`. |
 
 ## Planned lifts (from Step 1 walkthrough, 2026-05-04)
 
