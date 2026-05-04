@@ -1,0 +1,38 @@
+# Environment (contain API keys and secrets)
+.env
+.env.local
+.env.production
+.env*.local
+
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Build
+dist/
+build/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Uploads (S3 mirror — never commit binary content)
+uploads/*
+!uploads/.gitkeep
+
+# Coverage / test
+coverage/
+
+# Tmp
+tmp/

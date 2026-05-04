@@ -1,0 +1,10 @@
+{
+  "name": "anchor",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Anchor — newsroom AI platform (GROUNDED, Develop AI)",
+  "type": "commonjs",
+  "scripts": {
+    "todo": "echo 'Real scripts (dev, migrate, etc.) added in Step 2 once Next.js + Postgres deps are installed.'"
+  }
+}
