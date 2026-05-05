@@ -20,7 +20,8 @@ export async function GET() {
 
   const { rows } = await pool.query(
     `SELECT w.id, w.newsroom_id, w.created_by, w.name, w.slug, w.trigger_phrase,
-            w.description, w.definition, w.is_shared, w.created_at, w.updated_at,
+            w.description, w.problem_statement, w.problem_category, w.user_instructions,
+            w.definition, w.is_shared, w.created_at, w.updated_at,
             n.name AS newsroom_name
        FROM workflows w
        JOIN newsrooms n ON n.id = w.newsroom_id
@@ -46,6 +47,9 @@ export async function POST(req: Request) {
     slug?: string;
     trigger_phrase?: string;
     description?: string;
+    problem_statement?: string;
+    problem_category?: string;
+    user_instructions?: string;
     definition?: unknown;
     is_shared?: boolean;
   };
@@ -72,14 +76,20 @@ export async function POST(req: Request) {
   const slug = normaliseSlug(body.slug || name);
   const triggerPhrase = body.trigger_phrase?.trim() || null;
   const description = body.description?.trim() || null;
+  const problemStatement = body.problem_statement?.trim() || null;
+  const problemCategory = body.problem_category?.trim() || null;
+  const userInstructions = body.user_instructions?.trim() || null;
 
   try {
     const { rows } = await pool.query(
       `INSERT INTO workflows
-         (newsroom_id, created_by, name, slug, trigger_phrase, description, definition, is_shared)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         (newsroom_id, created_by, name, slug, trigger_phrase, description,
+          problem_statement, problem_category, user_instructions,
+          definition, is_shared)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id, newsroom_id, created_by, name, slug, trigger_phrase,
-                 description, definition, is_shared, created_at, updated_at`,
+                 description, problem_statement, problem_category, user_instructions,
+                 definition, is_shared, created_at, updated_at`,
       [
         session.newsroomId,
         session.userId,
@@ -87,6 +97,9 @@ export async function POST(req: Request) {
         slug,
         triggerPhrase,
         description,
+        problemStatement,
+        problemCategory,
+        userInstructions,
         JSON.stringify(definition),
         Boolean(is_shared),
       ]

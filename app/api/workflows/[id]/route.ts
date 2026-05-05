@@ -15,7 +15,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 async function loadWorkflow(id: string) {
   const { rows } = await pool.query(
     `SELECT w.id, w.newsroom_id, w.created_by, w.name, w.slug, w.trigger_phrase,
-            w.description, w.definition, w.is_shared, w.created_at, w.updated_at,
+            w.description, w.problem_statement, w.problem_category, w.user_instructions,
+            w.definition, w.is_shared, w.created_at, w.updated_at,
             n.name AS newsroom_name
        FROM workflows w
        JOIN newsrooms n ON n.id = w.newsroom_id
@@ -72,6 +73,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     slug?: string;
     trigger_phrase?: string | null;
     description?: string | null;
+    problem_statement?: string | null;
+    problem_category?: string | null;
+    user_instructions?: string | null;
     definition?: unknown;
     is_shared?: boolean;
   };
@@ -103,6 +107,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     values.push(body.description ? String(body.description).trim() : null);
     updates.push(`description = $${values.length}`);
   }
+  if (body.problem_statement !== undefined) {
+    values.push(body.problem_statement ? String(body.problem_statement).trim() : null);
+    updates.push(`problem_statement = $${values.length}`);
+  }
+  if (body.problem_category !== undefined) {
+    values.push(body.problem_category ? String(body.problem_category).trim() : null);
+    updates.push(`problem_category = $${values.length}`);
+  }
+  if (body.user_instructions !== undefined) {
+    values.push(body.user_instructions ? String(body.user_instructions).trim() : null);
+    updates.push(`user_instructions = $${values.length}`);
+  }
   if (body.definition !== undefined) {
     if (!body.definition || typeof body.definition !== 'object') {
       return NextResponse.json({ error: 'definition must be an object' }, { status: 400 });
@@ -132,7 +148,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       `UPDATE workflows SET ${updates.join(', ')}
         WHERE id = $${values.length}
        RETURNING id, newsroom_id, created_by, name, slug, trigger_phrase,
-                 description, definition, is_shared, created_at, updated_at`,
+                 description, problem_statement, problem_category, user_instructions,
+                 definition, is_shared, created_at, updated_at`,
       values
     );
 

@@ -47,6 +47,7 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import WorkflowRunner from './WorkflowRunner';
 
 export type AgentMeta = {
   slug: string;
@@ -72,6 +73,9 @@ export type Workflow = {
   slug: string;
   trigger_phrase: string | null;
   description: string | null;
+  problem_statement: string | null;
+  problem_category: string | null;
+  user_instructions: string | null;
   definition: WfDefinition;
   is_shared: boolean;
   newsroom_name?: string;
@@ -86,8 +90,23 @@ export type WorkflowSummary = {
   is_shared: boolean;
   trigger_phrase: string | null;
   description: string | null;
+  problem_category?: string | null;
   updated_at: string;
 };
+
+const PROBLEM_CATEGORIES = [
+  'Personalisation',
+  'Revenue',
+  'Production',
+  'Delivery',
+  'Social media',
+  'Audience research',
+  'Fact-checking',
+  'Translation',
+  'Archive',
+  'Editorial operations',
+  'Other',
+];
 
 export type SessionUser = {
   id: string;
@@ -265,14 +284,16 @@ function Inner({
   const [name, setName] = useState(activeWorkflow?.name || '');
   const [triggerPhrase, setTriggerPhrase] = useState(activeWorkflow?.trigger_phrase || '');
   const [description, setDescription] = useState(activeWorkflow?.description || '');
+  const [problemStatement, setProblemStatement] = useState(activeWorkflow?.problem_statement || '');
+  const [problemCategory, setProblemCategory] = useState(activeWorkflow?.problem_category || '');
+  const [userInstructions, setUserInstructions] = useState(activeWorkflow?.user_instructions || '');
   const [isShared, setIsShared] = useState(activeWorkflow?.is_shared || false);
+  const [testPanelOpen, setTestPanelOpen] = useState(false);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [status, setStatus] = useState<{ kind: 'ok' | 'error' | 'info'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  const [running, setRunning] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [runResult, setRunResult] = useState<unknown | null>(null);
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [newsroomUsers, setNewsroomUsers] = useState<NewsroomUser[]>([]);
@@ -287,10 +308,13 @@ function Inner({
       setName('');
       setTriggerPhrase('');
       setDescription('');
+      setProblemStatement('');
+      setProblemCategory('');
+      setUserInstructions('');
       setIsShared(false);
       setAssignments([]);
       setSelectedNodeId(null);
-      setRunResult(null);
+      setTestPanelOpen(false);
       return;
     }
     const flow = defToFlow(activeWorkflow.definition, agents);
@@ -301,9 +325,11 @@ function Inner({
     setName(activeWorkflow.name);
     setTriggerPhrase(activeWorkflow.trigger_phrase || '');
     setDescription(activeWorkflow.description || '');
+    setProblemStatement(activeWorkflow.problem_statement || '');
+    setProblemCategory(activeWorkflow.problem_category || '');
+    setUserInstructions(activeWorkflow.user_instructions || '');
     setIsShared(activeWorkflow.is_shared);
     setSelectedNodeId(null);
-    setRunResult(null);
     // load assignments + newsroom users
     fetch(`/api/workflows/${activeWorkflow.id}/assignments`)
       .then((r) => r.json())
@@ -464,6 +490,9 @@ function Inner({
           name,
           trigger_phrase: triggerPhrase || null,
           description: description || null,
+          problem_statement: problemStatement || null,
+          problem_category: problemCategory || null,
+          user_instructions: userInstructions || null,
           definition,
           is_shared: isShared,
         }),
@@ -483,38 +512,39 @@ function Inner({
     }
   }
 
-  async function onRun() {
-    if (!activeWorkflow) return;
+  async function onTestAsUser() {
+    if (!activeWorkflow || flowNodes.length === 0 || !wfOutput.node) return;
+    // Save first so the test runs the latest canvas state.
     setStatus(null);
-    setRunResult(null);
-    setRunning(true);
-    const inputs: Record<string, string> = {};
-    for (const inp of wfInputs) {
-      const v = window.prompt(`Workflow input — ${inp.name}:`);
-      if (v === null) {
-        setRunning(false);
-        setStatus({ kind: 'info', text: 'Run cancelled.' });
-        return;
-      }
-      inputs[inp.name] = v;
-    }
+    setSaving(true);
+    const definition = flowToDef(flowNodes, flowEdges, wfInputs, wfOutput);
     try {
-      const res = await fetch(`/api/workflows/${activeWorkflow.id}/run`, {
-        method: 'POST',
+      const res = await fetch(`/api/workflows/${activeWorkflow.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputs }),
+        body: JSON.stringify({
+          name,
+          trigger_phrase: triggerPhrase || null,
+          description: description || null,
+          problem_statement: problemStatement || null,
+          problem_category: problemCategory || null,
+          user_instructions: userInstructions || null,
+          definition,
+          is_shared: isShared,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setStatus({ kind: 'error', text: data.error || 'Run failed' });
-      } else {
-        setRunResult(data);
-        setStatus({ kind: 'ok', text: `Run completed in ${data.durationMs}ms (cost $${data.totalCost.costUsd.toFixed(4)}).` });
+        setStatus({ kind: 'error', text: data.error || 'Save before test failed' });
+        return;
       }
+      setActiveWorkflow(data.workflow);
+      setTestPanelOpen(true);
+      setStatus({ kind: 'ok', text: 'Saved. Testing as a user…' });
     } catch (e) {
       setStatus({ kind: 'error', text: e instanceof Error ? e.message : 'Network error' });
     } finally {
-      setRunning(false);
+      setSaving(false);
     }
   }
 
@@ -661,11 +691,12 @@ function Inner({
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
-              onClick={onRun}
-              disabled={running || flowNodes.length === 0 || !wfOutput.node}
-              style={{ padding: '7px 12px', background: '#0066cc', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', opacity: running || flowNodes.length === 0 || !wfOutput.node ? 0.5 : 1 }}
+              onClick={onTestAsUser}
+              disabled={saving || flowNodes.length === 0 || !wfOutput.node}
+              title={flowNodes.length === 0 ? 'Add at least one agent first' : !wfOutput.node ? 'Pick a workflow output first' : 'Save and test as a user'}
+              style={{ padding: '7px 12px', background: '#0066cc', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', opacity: saving || flowNodes.length === 0 || !wfOutput.node ? 0.5 : 1 }}
             >
-              {running ? 'Running…' : 'Run'}
+              ▶ Test as user
             </button>
           </>
         ) : (
@@ -813,6 +844,32 @@ function Inner({
           )}
         </div>
 
+        {/* Test-as-user overlay */}
+        {testPanelOpen && activeWorkflow && (
+          <>
+            <div
+              onClick={() => setTestPanelOpen(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 50 }}
+            />
+            <aside
+              style={{
+                position: 'fixed',
+                top: 0,
+                right: 0,
+                bottom: 0,
+                width: 480,
+                background: 'white',
+                boxShadow: '-4px 0 16px rgba(0,0,0,0.1)',
+                zIndex: 51,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <WorkflowRunner workflow={activeWorkflow} onClose={() => setTestPanelOpen(false)} />
+            </aside>
+          </>
+        )}
+
         {/* Right panel */}
         {activeWorkflow && (
           <aside style={{ width: 320, borderLeft: '1px solid #e5e5e5', padding: 14, overflowY: 'auto', background: '#fafafa' }}>
@@ -832,10 +889,15 @@ function Inner({
               <WorkflowPanel
                 description={description}
                 setDescription={setDescription}
+                problemStatement={problemStatement}
+                setProblemStatement={setProblemStatement}
+                problemCategory={problemCategory}
+                setProblemCategory={setProblemCategory}
+                userInstructions={userInstructions}
+                setUserInstructions={setUserInstructions}
                 editable={editable}
                 wfInputs={wfInputs}
                 wfOutput={wfOutput}
-                runResult={runResult}
                 assignments={assignments}
                 newsroomUsers={newsroomUsers}
                 onAdd={addAssignment}
@@ -954,10 +1016,15 @@ function NodePanel({
 function WorkflowPanel({
   description,
   setDescription,
+  problemStatement,
+  setProblemStatement,
+  problemCategory,
+  setProblemCategory,
+  userInstructions,
+  setUserInstructions,
   editable,
   wfInputs,
   wfOutput,
-  runResult,
   assignments,
   newsroomUsers,
   onAdd,
@@ -969,10 +1036,15 @@ function WorkflowPanel({
 }: {
   description: string;
   setDescription: (v: string) => void;
+  problemStatement: string;
+  setProblemStatement: (v: string) => void;
+  problemCategory: string;
+  setProblemCategory: (v: string) => void;
+  userInstructions: string;
+  setUserInstructions: (v: string) => void;
   editable: boolean;
   wfInputs: WfDefinition['inputs'];
   wfOutput: WfDefinition['output'];
-  runResult: unknown | null;
   assignments: Assignment[];
   newsroomUsers: NewsroomUser[];
   onAdd: (userId: string) => void;
@@ -988,6 +1060,51 @@ function WorkflowPanel({
   return (
     <div>
       <h3 style={{ fontSize: 16, margin: '0 0 12px' }}>Workflow</h3>
+
+      <section style={{ marginBottom: 16, padding: 12, background: '#f8f5ff', border: '1px solid #d6c8f5', borderRadius: 6 }}>
+        <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#5a3a99', margin: '0 0 8px', letterSpacing: 0.5 }}>
+          The problem this solves
+        </h4>
+        <p style={{ fontSize: 11, color: '#6a4ca0', margin: '0 0 8px' }}>
+          Frame this workflow as a product. What newsroom problem does it solve, and what category does it fit into? Users will see this before they run it.
+        </p>
+        <label style={{ display: 'block', marginBottom: 8 }}>
+          <span style={{ fontSize: 12, color: '#5a3a99', display: 'block', marginBottom: 3 }}>Problem statement</span>
+          <textarea
+            value={problemStatement}
+            onChange={(e) => setProblemStatement(e.target.value)}
+            disabled={!editable}
+            rows={2}
+            placeholder="e.g. Tips coming in over WhatsApp aren't being fact-checked or routed properly."
+            style={{ width: '100%', fontSize: 13, padding: 8, border: '1px solid #d6c8f5', borderRadius: 3, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', background: 'white' }}
+          />
+        </label>
+        <label style={{ display: 'block', marginBottom: 8 }}>
+          <span style={{ fontSize: 12, color: '#5a3a99', display: 'block', marginBottom: 3 }}>Category</span>
+          <select
+            value={problemCategory}
+            onChange={(e) => setProblemCategory(e.target.value)}
+            disabled={!editable}
+            style={{ width: '100%', fontSize: 13, padding: 8, border: '1px solid #d6c8f5', borderRadius: 3, background: 'white' }}
+          >
+            <option value="">— pick one —</option>
+            {PROBLEM_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </label>
+        <label style={{ display: 'block' }}>
+          <span style={{ fontSize: 12, color: '#5a3a99', display: 'block', marginBottom: 3 }}>Instructions for the user</span>
+          <textarea
+            value={userInstructions}
+            onChange={(e) => setUserInstructions(e.target.value)}
+            disabled={!editable}
+            rows={3}
+            placeholder={'Step-by-step guidance the user sees when they open this workflow.\n\ne.g. "Paste the article you want to check. The verifier flags claims, then the drafter writes three social posts."'}
+            style={{ width: '100%', fontSize: 13, padding: 8, border: '1px solid #d6c8f5', borderRadius: 3, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', background: 'white' }}
+          />
+        </label>
+      </section>
 
       {editable && (
         <div style={{ marginBottom: 16, padding: 10, background: '#fff8e6', border: '1px solid #f5d77a', borderRadius: 6 }}>
@@ -1122,15 +1239,6 @@ function WorkflowPanel({
         </p>
       ) : (
         <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Click a node and choose an output radio.</p>
-      )}
-
-      {runResult !== null && (
-        <>
-          <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#777', margin: '16px 0 6px', letterSpacing: 0.5 }}>Last run</h4>
-          <pre style={{ fontSize: 11, background: '#111', color: '#0f0', padding: 10, borderRadius: 4, maxHeight: 300, overflow: 'auto' }}>
-            {JSON.stringify(runResult, null, 2)}
-          </pre>
-        </>
       )}
 
       {editable && (
