@@ -90,6 +90,7 @@ export default async function RunIndex() {
         {isBuilderOrAdmin && (
           <Link href="/builder" style={{ fontSize: 13, color: '#0066cc' }}>Builder →</Link>
         )}
+        <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
       </header>
 
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '24px 20px' }}>

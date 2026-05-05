@@ -43,6 +43,8 @@ export default async function RunWorkflowPage({ params }: { params: Promise<{ id
         <Link href="/run" style={{ fontSize: 14, color: '#0066cc', textDecoration: 'none' }}>
           ← All workflows
         </Link>
+        <span style={{ flex: 1 }} />
+        <Link href="/guide" style={{ fontSize: 13, color: '#0066cc' }}>Help →</Link>
       </header>
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px', background: 'white', minHeight: 'calc(100vh - 60px)', borderLeft: '1px solid #e5e5e5', borderRight: '1px solid #e5e5e5' }}>
         <WorkflowRunner workflow={workflow} />

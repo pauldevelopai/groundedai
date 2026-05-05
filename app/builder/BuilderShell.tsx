@@ -773,6 +773,7 @@ function Inner({
         {currentUser.role === 'admin' && (
           <Link href="/team" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Team →</Link>
         )}
+        <Link href="/guide" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Help →</Link>
       </header>
 
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>

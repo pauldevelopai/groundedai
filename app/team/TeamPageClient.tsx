@@ -82,7 +82,10 @@ export default function TeamPageClient({
     <main style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 800, margin: '0 auto' }}>
       <header style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
         <h1 style={{ margin: 0 }}>Team</h1>
-        <Link href="/builder" style={{ fontSize: 13, color: '#0066cc' }}>← Back to Builder</Link>
+        <span>
+          <Link href="/builder" style={{ fontSize: 13, color: '#0066cc' }}>← Back to Builder</Link>
+          <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
+        </span>
       </header>
       <p style={{ color: '#666', fontSize: 14, marginTop: 0 }}>{newsroomName}</p>
 
