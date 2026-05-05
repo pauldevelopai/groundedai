@@ -1,39 +1,19 @@
-// /builder — Builder mode index. Lists workflows visible to the user
-// (own newsroom + cross-newsroom shared) and offers "+ New workflow".
+// /builder — Builder workspace, no workflow active. The shell handles
+// "+ New" inline and renders an empty-state when nothing is open.
 
-import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/app/lib/session';
 import { pool } from '@/lib/db';
+import { list as listAgents } from '@/lib/agents/registry';
+import BuilderShell, { WorkflowSummary } from './BuilderShell';
 
-type WorkflowRow = {
-  id: string;
-  newsroom_id: string;
-  newsroom_name: string;
-  name: string;
-  slug: string;
-  trigger_phrase: string | null;
-  description: string | null;
-  is_shared: boolean;
-  updated_at: string;
-};
-
-export default async function BuilderIndex() {
+export default async function BuilderRoot() {
   const session = await getCurrentSession();
-  if (!session) {
-    return (
-      <main style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 720, margin: '0 auto' }}>
-        <h1>Builder</h1>
-        <p>You need to sign in to use the Builder.</p>
-        <p style={{ color: '#666', fontSize: 14 }}>
-          POST your credentials to <code>/api/auth/login</code> first. (A login page lands in Slice 6.)
-        </p>
-      </main>
-    );
-  }
+  if (!session) redirect('/login?next=/builder');
 
-  const { rows } = await pool.query<WorkflowRow>(
+  const { rows: workflowRows } = await pool.query<WorkflowSummary>(
     `SELECT w.id, w.newsroom_id, n.name AS newsroom_name, w.name, w.slug,
-            w.trigger_phrase, w.description, w.is_shared, w.updated_at
+            w.is_shared, w.trigger_phrase, w.description, w.updated_at
        FROM workflows w
        JOIN newsrooms n ON n.id = w.newsroom_id
       WHERE w.newsroom_id = $1 OR w.is_shared = TRUE
@@ -41,79 +21,26 @@ export default async function BuilderIndex() {
     [session.newsroomId]
   );
 
-  const own = rows.filter((r) => r.newsroom_id === session.newsroomId);
-  const shared = rows.filter((r) => r.newsroom_id !== session.newsroomId);
-
-  const canEdit = session.role === 'builder' || session.role === 'admin';
-
-  return (
-    <main style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 960, margin: '0 auto' }}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h1 style={{ margin: 0 }}>Builder</h1>
-        {canEdit && (
-          <Link
-            href="/builder/new"
-            style={{
-              padding: '8px 14px',
-              background: '#111',
-              color: '#fff',
-              borderRadius: 6,
-              textDecoration: 'none',
-              fontSize: 14,
-            }}
-          >
-            + New workflow
-          </Link>
-        )}
-      </header>
-
-      <section>
-        <h2 style={{ fontSize: 18, marginBottom: 12 }}>Your workflows</h2>
-        {own.length === 0 ? (
-          <p style={{ color: '#666' }}>No workflows yet. {canEdit ? 'Click "+ New workflow" to start.' : 'Ask your AI champion to build one.'}</p>
-        ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {own.map((w) => (
-              <WorkflowCard key={w.id} w={w} editable={canEdit} />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {shared.length > 0 && (
-        <section style={{ marginTop: 32 }}>
-          <h2 style={{ fontSize: 18, marginBottom: 12 }}>Shared library</h2>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {shared.map((w) => (
-              <WorkflowCard key={w.id} w={w} editable={false} />
-            ))}
-          </ul>
-        </section>
-      )}
-    </main>
+  const { rows: userRows } = await pool.query(
+    `SELECT u.id, u.email, u.role, n.name AS newsroom_name, n.id AS newsroom_id
+       FROM users u JOIN newsrooms n ON n.id = u.newsroom_id
+      WHERE u.id = $1`,
+    [session.userId]
   );
-}
+  const u = userRows[0];
 
-function WorkflowCard({ w, editable }: { w: WorkflowRow; editable: boolean }) {
   return (
-    <li style={{ border: '1px solid #ddd', borderRadius: 6, padding: 14, marginBottom: 10 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <div>
-          <strong style={{ fontSize: 16 }}>{w.name}</strong>
-          <span style={{ color: '#888', marginLeft: 8, fontSize: 13 }}>
-            {w.is_shared ? 'shared' : 'private'} · {w.newsroom_name}
-          </span>
-        </div>
-        <Link href={`/builder/${w.id}`} style={{ fontSize: 13, color: '#0066cc' }}>
-          {editable ? 'Edit →' : 'View →'}
-        </Link>
-      </div>
-      {w.description && <p style={{ color: '#444', margin: '6px 0 0', fontSize: 14 }}>{w.description}</p>}
-      {w.trigger_phrase && (
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: '#666' }}>
-          Trigger: <code style={{ background: '#f3f3f3', padding: '2px 6px', borderRadius: 3 }}>{w.trigger_phrase}</code>
-        </p>
-      )}
-    </li>
+    <BuilderShell
+      initialWorkflows={workflowRows}
+      initialWorkflow={null}
+      agents={listAgents()}
+      currentUser={{
+        id: u.id,
+        email: u.email,
+        role: u.role,
+        newsroom_id: u.newsroom_id,
+        newsroom_name: u.newsroom_name,
+      }}
+    />
   );
 }

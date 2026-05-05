@@ -1,0 +1,1037 @@
+// BuilderShell — the whole Builder workspace in one client component.
+//
+// Layout:
+//   ┌──────────────────────────────────────────────────────────┐
+//   │ Header: workflow name · trigger · share · Save · Run     │
+//   ├──────────┬─────────────────────────────────┬─────────────┤
+//   │ Workflows│                                 │ Selected    │
+//   │   + New  │           Canvas                │ node config │
+//   │   list   │                                 │   OR        │
+//   │ ──────── │                                 │ Workflow    │
+//   │ Agents   │                                 │ settings +  │
+//   │   palette│                                 │ Members     │
+//   └──────────┴─────────────────────────────────┴─────────────┘
+//
+// "+ New" POSTs an empty workflow and the URL replaces to /builder/[id]
+// — no separate /new screen. Clicking a workflow in the list switches
+// active workflow without leaving /builder.
+
+'use client';
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent as ReactDragEvent,
+} from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  ReactFlow,
+  ReactFlowProvider,
+  Controls,
+  Background,
+  Handle,
+  Position,
+  addEdge,
+  applyNodeChanges,
+  applyEdgeChanges,
+  useReactFlow,
+  type Connection,
+  type Edge,
+  type Node,
+  type NodeChange,
+  type EdgeChange,
+  type NodeProps,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+
+export type AgentMeta = {
+  slug: string;
+  name: string;
+  description: string;
+  triggers: string[];
+  inputs: Record<string, { type: string; required?: boolean; description?: string }>;
+  outputs: Record<string, { type: string; description?: string }>;
+  route: string;
+};
+
+type WfDefinition = {
+  nodes: { id: string; agent_slug: string; config?: Record<string, string>; position?: { x: number; y: number } }[];
+  edges: { from: { node: string; field: string }; to: { node: string; field: string } }[];
+  inputs: { name: string; to: { node: string; field: string } }[];
+  output: { node: string; field: string };
+};
+
+export type Workflow = {
+  id: string;
+  newsroom_id: string;
+  name: string;
+  slug: string;
+  trigger_phrase: string | null;
+  description: string | null;
+  definition: WfDefinition;
+  is_shared: boolean;
+  newsroom_name?: string;
+};
+
+export type WorkflowSummary = {
+  id: string;
+  newsroom_id: string;
+  newsroom_name: string;
+  name: string;
+  slug: string;
+  is_shared: boolean;
+  trigger_phrase: string | null;
+  description: string | null;
+  updated_at: string;
+};
+
+export type SessionUser = {
+  id: string;
+  email: string;
+  role: 'builder' | 'user' | 'admin';
+  newsroom_id: string;
+  newsroom_name: string;
+};
+
+type AgentNodeData = {
+  agent_slug: string;
+  agent: AgentMeta;
+  config: Record<string, string>;
+};
+
+type FlowNode = Node<AgentNodeData, 'agent'>;
+
+type Assignment = { id: string; email: string; role: string; assigned_at: string };
+type NewsroomUser = { id: string; email: string; role: string };
+
+const EMPTY_DEFINITION: WfDefinition = { nodes: [], edges: [], inputs: [], output: { node: '', field: '' } };
+
+function defToFlow(def: WfDefinition, agents: AgentMeta[]): { nodes: FlowNode[]; edges: Edge[] } {
+  const agentBySlug = new Map(agents.map((a) => [a.slug, a]));
+  const nodes: FlowNode[] = (def.nodes || []).map((n, i) => ({
+    id: n.id,
+    type: 'agent',
+    position: n.position || { x: 80 + i * 280, y: 80 },
+    data: {
+      agent_slug: n.agent_slug,
+      agent: agentBySlug.get(n.agent_slug) as AgentMeta,
+      config: n.config || {},
+    },
+  }));
+  const edges: Edge[] = (def.edges || []).map((e, i) => ({
+    id: `e-${i}-${e.from.node}-${e.from.field}-${e.to.node}-${e.to.field}`,
+    source: e.from.node,
+    sourceHandle: `out-${e.from.field}`,
+    target: e.to.node,
+    targetHandle: `in-${e.to.field}`,
+  }));
+  return { nodes, edges };
+}
+
+function flowToDef(
+  nodes: FlowNode[],
+  edges: Edge[],
+  wfInputs: WfDefinition['inputs'],
+  wfOutput: WfDefinition['output']
+): WfDefinition {
+  return {
+    nodes: nodes.map((n) => ({
+      id: n.id,
+      agent_slug: n.data.agent_slug,
+      config: n.data.config,
+      position: n.position,
+    })),
+    edges: edges.map((e) => ({
+      from: { node: e.source, field: (e.sourceHandle || '').replace(/^out-/, '') },
+      to: { node: e.target, field: (e.targetHandle || '').replace(/^in-/, '') },
+    })),
+    inputs: wfInputs,
+    output: wfOutput,
+  };
+}
+
+function AgentNode({ data, selected }: NodeProps<FlowNode>) {
+  const { agent } = data;
+  const inputEntries = Object.entries(agent.inputs);
+  const outputEntries = Object.entries(agent.outputs);
+  return (
+    <div
+      style={{
+        background: 'white',
+        border: selected ? '2px solid #0066cc' : '1px solid #bbb',
+        borderRadius: 6,
+        boxShadow: selected ? '0 0 0 3px rgba(0,102,204,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
+        minWidth: 220,
+        fontSize: 13,
+      }}
+    >
+      <div style={{ background: '#f7f7f7', padding: '8px 12px', borderBottom: '1px solid #eee', borderRadius: '6px 6px 0 0' }}>
+        <div style={{ fontWeight: 600 }}>{agent.name}</div>
+        <div style={{ color: '#888', fontSize: 11 }}>{agent.slug}</div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {inputEntries.map(([k, schema]) => (
+            <div key={k} style={{ position: 'relative', padding: '0 12px 0 14px' }}>
+              <Handle
+                type="target"
+                position={Position.Left}
+                id={`in-${k}`}
+                style={{ background: schema.required ? '#cc3333' : '#888', width: 10, height: 10 }}
+              />
+              <span style={{ fontSize: 11 }}>
+                {k}
+                {schema.required && <span style={{ color: '#cc3333' }}>*</span>}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {outputEntries.map(([k]) => (
+            <div key={k} style={{ position: 'relative', padding: '0 14px 0 12px', textAlign: 'right' }}>
+              <span style={{ fontSize: 11, color: '#0066cc' }}>{k}</span>
+              <Handle
+                type="source"
+                position={Position.Right}
+                id={`out-${k}`}
+                style={{ background: '#0066cc', width: 10, height: 10 }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const nodeTypes = { agent: AgentNode };
+
+function nextNodeId(existing: { id: string }[]) {
+  let n = existing.length + 1;
+  while (existing.some((e) => e.id === `n${n}`)) n++;
+  return `n${n}`;
+}
+
+export default function BuilderShell(props: {
+  initialWorkflows: WorkflowSummary[];
+  initialWorkflow: Workflow | null;
+  agents: AgentMeta[];
+  currentUser: SessionUser;
+}) {
+  return (
+    <ReactFlowProvider>
+      <Inner {...props} />
+    </ReactFlowProvider>
+  );
+}
+
+function Inner({
+  initialWorkflows,
+  initialWorkflow,
+  agents,
+  currentUser,
+}: {
+  initialWorkflows: WorkflowSummary[];
+  initialWorkflow: Workflow | null;
+  agents: AgentMeta[];
+  currentUser: SessionUser;
+}) {
+  const router = useRouter();
+  const reactFlow = useReactFlow();
+  const flowWrapper = useRef<HTMLDivElement>(null);
+
+  const [workflows, setWorkflows] = useState(initialWorkflows);
+  const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(initialWorkflow);
+
+  const editable =
+    !!activeWorkflow &&
+    activeWorkflow.newsroom_id === currentUser.newsroom_id &&
+    (currentUser.role === 'builder' || currentUser.role === 'admin');
+
+  const initialFlow = useMemo(
+    () => (activeWorkflow ? defToFlow(activeWorkflow.definition, agents) : { nodes: [], edges: [] }),
+    [activeWorkflow, agents]
+  );
+  const [flowNodes, setFlowNodes] = useState<FlowNode[]>(initialFlow.nodes);
+  const [flowEdges, setFlowEdges] = useState<Edge[]>(initialFlow.edges);
+  const [wfInputs, setWfInputs] = useState<WfDefinition['inputs']>(activeWorkflow?.definition.inputs || []);
+  const [wfOutput, setWfOutput] = useState<WfDefinition['output']>(
+    activeWorkflow?.definition.output || { node: '', field: '' }
+  );
+  const [name, setName] = useState(activeWorkflow?.name || '');
+  const [triggerPhrase, setTriggerPhrase] = useState(activeWorkflow?.trigger_phrase || '');
+  const [description, setDescription] = useState(activeWorkflow?.description || '');
+  const [isShared, setIsShared] = useState(activeWorkflow?.is_shared || false);
+
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ kind: 'ok' | 'error' | 'info'; text: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [runResult, setRunResult] = useState<unknown | null>(null);
+
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [newsroomUsers, setNewsroomUsers] = useState<NewsroomUser[]>([]);
+
+  // Reload state when activeWorkflow changes (e.g. switching workflows from sidebar)
+  useEffect(() => {
+    if (!activeWorkflow) {
+      setFlowNodes([]);
+      setFlowEdges([]);
+      setWfInputs([]);
+      setWfOutput({ node: '', field: '' });
+      setName('');
+      setTriggerPhrase('');
+      setDescription('');
+      setIsShared(false);
+      setAssignments([]);
+      setSelectedNodeId(null);
+      setRunResult(null);
+      return;
+    }
+    const flow = defToFlow(activeWorkflow.definition, agents);
+    setFlowNodes(flow.nodes);
+    setFlowEdges(flow.edges);
+    setWfInputs(activeWorkflow.definition.inputs || []);
+    setWfOutput(activeWorkflow.definition.output || { node: '', field: '' });
+    setName(activeWorkflow.name);
+    setTriggerPhrase(activeWorkflow.trigger_phrase || '');
+    setDescription(activeWorkflow.description || '');
+    setIsShared(activeWorkflow.is_shared);
+    setSelectedNodeId(null);
+    setRunResult(null);
+    // load assignments + newsroom users
+    fetch(`/api/workflows/${activeWorkflow.id}/assignments`)
+      .then((r) => r.json())
+      .then((d) => setAssignments(d.assignments || []))
+      .catch(() => setAssignments([]));
+    fetch('/api/users')
+      .then((r) => r.json())
+      .then((d) => setNewsroomUsers(d.users || []))
+      .catch(() => setNewsroomUsers([]));
+  }, [activeWorkflow, agents]);
+
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setFlowNodes((nds) => applyNodeChanges(changes, nds) as FlowNode[]);
+  }, []);
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setFlowEdges((eds) => applyEdgeChanges(changes, eds));
+  }, []);
+  const onConnect = useCallback((conn: Connection) => {
+    setFlowEdges((eds) => addEdge(conn, eds));
+  }, []);
+
+  const onDragOver = useCallback((event: ReactDragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+  const onDrop = useCallback(
+    (event: ReactDragEvent) => {
+      event.preventDefault();
+      if (!editable) return;
+      const slug = event.dataTransfer.getData('application/anchor-agent');
+      if (!slug) return;
+      const agent = agents.find((a) => a.slug === slug);
+      if (!agent) return;
+      const position = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      setFlowNodes((nds) => {
+        const id = nextNodeId(nds);
+        const newNode: FlowNode = {
+          id,
+          type: 'agent',
+          position,
+          data: { agent_slug: agent.slug, agent, config: {} },
+        };
+        return [...nds, newNode];
+      });
+    },
+    [agents, editable, reactFlow]
+  );
+
+  const onNodeClick = useCallback((_e: unknown, node: Node) => setSelectedNodeId(node.id), []);
+  const onPaneClick = useCallback(() => setSelectedNodeId(null), []);
+
+  const selectedNode = flowNodes.find((n) => n.id === selectedNodeId) || null;
+  const incomingEdgeFields = useMemo(() => {
+    const set = new Set<string>();
+    if (!selectedNode) return set;
+    for (const e of flowEdges) {
+      if (e.target === selectedNode.id && e.targetHandle) {
+        set.add(e.targetHandle.replace(/^in-/, ''));
+      }
+    }
+    return set;
+  }, [selectedNode, flowEdges]);
+
+  const updateSelectedConfig = useCallback(
+    (field: string, value: string) => {
+      if (!selectedNode) return;
+      setFlowNodes((nds) =>
+        nds.map((n) =>
+          n.id === selectedNode.id
+            ? { ...n, data: { ...n.data, config: { ...n.data.config, [field]: value } } }
+            : n
+        )
+      );
+    },
+    [selectedNode]
+  );
+
+  const deleteSelected = useCallback(() => {
+    if (!selectedNode) return;
+    setFlowNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
+    setFlowEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
+    setWfInputs((ins) => ins.filter((i) => i.to.node !== selectedNode.id));
+    if (wfOutput.node === selectedNode.id) setWfOutput({ node: '', field: '' });
+    setSelectedNodeId(null);
+  }, [selectedNode, wfOutput]);
+
+  async function onCreateNew() {
+    if (creating) return;
+    setStatus(null);
+    setCreating(true);
+    try {
+      const res = await fetch('/api/workflows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Untitled workflow',
+          definition: EMPTY_DEFINITION,
+          is_shared: false,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus({ kind: 'error', text: data.error || 'Failed to create workflow' });
+        setCreating(false);
+        return;
+      }
+      const wf: Workflow = data.workflow;
+      setWorkflows((ws) => [
+        {
+          id: wf.id,
+          newsroom_id: wf.newsroom_id,
+          newsroom_name: currentUser.newsroom_name,
+          name: wf.name,
+          slug: wf.slug,
+          is_shared: wf.is_shared,
+          trigger_phrase: wf.trigger_phrase,
+          description: wf.description,
+          updated_at: new Date().toISOString(),
+        },
+        ...ws,
+      ]);
+      setActiveWorkflow(wf);
+      router.replace(`/builder/${wf.id}`);
+    } catch (e) {
+      setStatus({ kind: 'error', text: e instanceof Error ? e.message : 'Network error' });
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function onSwitch(id: string) {
+    if (id === activeWorkflow?.id) return;
+    setStatus(null);
+    try {
+      const res = await fetch(`/api/workflows/${id}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus({ kind: 'error', text: data.error || 'Failed to load workflow' });
+        return;
+      }
+      setActiveWorkflow(data.workflow);
+      router.replace(`/builder/${id}`);
+    } catch (e) {
+      setStatus({ kind: 'error', text: e instanceof Error ? e.message : 'Network error' });
+    }
+  }
+
+  async function onSave() {
+    if (!activeWorkflow) return;
+    setStatus(null);
+    setSaving(true);
+    const definition = flowToDef(flowNodes, flowEdges, wfInputs, wfOutput);
+    try {
+      const res = await fetch(`/api/workflows/${activeWorkflow.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          trigger_phrase: triggerPhrase || null,
+          description: description || null,
+          definition,
+          is_shared: isShared,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus({ kind: 'error', text: data.error || 'Save failed' });
+      } else {
+        setStatus({ kind: 'ok', text: 'Saved.' });
+        setActiveWorkflow(data.workflow);
+        setWorkflows((ws) => ws.map((w) => (w.id === data.workflow.id ? { ...w, name: data.workflow.name, is_shared: data.workflow.is_shared, trigger_phrase: data.workflow.trigger_phrase, description: data.workflow.description, updated_at: new Date().toISOString() } : w)));
+      }
+    } catch (e) {
+      setStatus({ kind: 'error', text: e instanceof Error ? e.message : 'Network error' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onRun() {
+    if (!activeWorkflow) return;
+    setStatus(null);
+    setRunResult(null);
+    setRunning(true);
+    const inputs: Record<string, string> = {};
+    for (const inp of wfInputs) {
+      const v = window.prompt(`Workflow input — ${inp.name}:`);
+      if (v === null) {
+        setRunning(false);
+        setStatus({ kind: 'info', text: 'Run cancelled.' });
+        return;
+      }
+      inputs[inp.name] = v;
+    }
+    try {
+      const res = await fetch(`/api/workflows/${activeWorkflow.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inputs }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus({ kind: 'error', text: data.error || 'Run failed' });
+      } else {
+        setRunResult(data);
+        setStatus({ kind: 'ok', text: `Run completed in ${data.durationMs}ms (cost $${data.totalCost.costUsd.toFixed(4)}).` });
+      }
+    } catch (e) {
+      setStatus({ kind: 'error', text: e instanceof Error ? e.message : 'Network error' });
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  async function onDelete() {
+    if (!activeWorkflow) return;
+    if (!window.confirm(`Delete workflow "${activeWorkflow.name}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/workflows/${activeWorkflow.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setStatus({ kind: 'error', text: data.error || 'Delete failed' });
+        return;
+      }
+      setWorkflows((ws) => ws.filter((w) => w.id !== activeWorkflow.id));
+      setActiveWorkflow(null);
+      router.replace('/builder');
+    } catch (e) {
+      setStatus({ kind: 'error', text: e instanceof Error ? e.message : 'Network error' });
+    }
+  }
+
+  const exposeAsInput = (nodeId: string, field: string) => {
+    const exists = wfInputs.find((i) => i.to.node === nodeId && i.to.field === field);
+    if (exists) {
+      setWfInputs((ins) => ins.filter((i) => !(i.to.node === nodeId && i.to.field === field)));
+    } else {
+      setWfInputs((ins) => [...ins, { name: field, to: { node: nodeId, field } }]);
+    }
+  };
+  const setOutputField = (nodeId: string, field: string) => setWfOutput({ node: nodeId, field });
+
+  async function addAssignment(userId: string) {
+    if (!activeWorkflow) return;
+    const res = await fetch(`/api/workflows/${activeWorkflow.id}/assignments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId }),
+    });
+    if (res.ok) {
+      const fresh = await fetch(`/api/workflows/${activeWorkflow.id}/assignments`).then((r) => r.json());
+      setAssignments(fresh.assignments || []);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setStatus({ kind: 'error', text: data.error || 'Assign failed' });
+    }
+  }
+  async function removeAssignment(userId: string) {
+    if (!activeWorkflow) return;
+    const res = await fetch(`/api/workflows/${activeWorkflow.id}/assignments/${userId}`, { method: 'DELETE' });
+    if (res.ok) {
+      setAssignments((as) => as.filter((a) => a.id !== userId));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setStatus({ kind: 'error', text: data.error || 'Unassign failed' });
+    }
+  }
+
+  const ownWorkflows = workflows.filter((w) => w.newsroom_id === currentUser.newsroom_id);
+  const sharedWorkflows = workflows.filter((w) => w.newsroom_id !== currentUser.newsroom_id);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'system-ui, sans-serif' }}>
+      {/* Header */}
+      <header style={{ borderBottom: '1px solid #e5e5e5', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, background: '#fafafa', minHeight: 52 }}>
+        <strong style={{ fontSize: 15 }}>Anchor</strong>
+        <span style={{ color: '#999' }}>/</span>
+        <span style={{ fontSize: 14 }}>Builder</span>
+        <span style={{ flex: 1 }} />
+        {activeWorkflow ? (
+          <>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Workflow name"
+              disabled={!editable}
+              style={{ fontSize: 14, fontWeight: 500, padding: '6px 8px', border: '1px solid #ddd', borderRadius: 4, minWidth: 180 }}
+            />
+            <input
+              type="text"
+              value={triggerPhrase}
+              onChange={(e) => setTriggerPhrase(e.target.value)}
+              placeholder="Trigger phrase"
+              disabled={!editable}
+              style={{ fontSize: 12, padding: '6px 8px', border: '1px solid #ddd', borderRadius: 4, minWidth: 180 }}
+            />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+              <input
+                type="checkbox"
+                checked={isShared}
+                onChange={(e) => setIsShared(e.target.checked)}
+                disabled={!editable}
+              />
+              Share to library
+            </label>
+            {status && (
+              <span style={{ fontSize: 12, color: status.kind === 'error' ? '#b00' : status.kind === 'ok' ? '#0a0' : '#666' }}>
+                {status.text}
+              </span>
+            )}
+            <button
+              onClick={onSave}
+              disabled={!editable || saving}
+              style={{ padding: '7px 12px', background: '#111', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', opacity: !editable || saving ? 0.5 : 1 }}
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={onRun}
+              disabled={running || flowNodes.length === 0 || !wfOutput.node}
+              style={{ padding: '7px 12px', background: '#0066cc', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', opacity: running || flowNodes.length === 0 || !wfOutput.node ? 0.5 : 1 }}
+            >
+              {running ? 'Running…' : 'Run'}
+            </button>
+          </>
+        ) : (
+          <span style={{ fontSize: 12, color: '#888' }}>{currentUser.email} · {currentUser.newsroom_name}</span>
+        )}
+      </header>
+
+      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        {/* Left rail: workflows + agents palette */}
+        <aside style={{ width: 240, borderRight: '1px solid #e5e5e5', display: 'flex', flexDirection: 'column', background: '#fcfcfc' }}>
+          <div style={{ padding: 12, borderBottom: '1px solid #eee' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <h3 style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#777', margin: 0 }}>
+                Workflows
+              </h3>
+              {(currentUser.role === 'builder' || currentUser.role === 'admin') && (
+                <button
+                  onClick={onCreateNew}
+                  disabled={creating}
+                  title="New workflow"
+                  style={{ width: 24, height: 24, padding: 0, lineHeight: '20px', textAlign: 'center', background: '#111', color: '#fff', border: 'none', borderRadius: 4, cursor: creating ? 'wait' : 'pointer', fontSize: 16 }}
+                >
+                  +
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {ownWorkflows.length === 0 ? (
+                <p style={{ fontSize: 13, color: '#999', margin: '4px 0' }}>No workflows yet.</p>
+              ) : (
+                ownWorkflows.map((w) => (
+                  <button
+                    key={w.id}
+                    onClick={() => onSwitch(w.id)}
+                    style={{
+                      textAlign: 'left',
+                      padding: '8px 10px',
+                      background: activeWorkflow?.id === w.id ? '#e8f1ff' : 'transparent',
+                      color: activeWorkflow?.id === w.id ? '#0044aa' : '#222',
+                      border: 'none',
+                      borderRadius: 4,
+                      fontSize: 14,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {w.name}
+                  </button>
+                ))
+              )}
+            </div>
+            {sharedWorkflows.length > 0 && (
+              <>
+                <h3 style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#777', margin: '12px 0 6px' }}>Shared library</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {sharedWorkflows.map((w) => (
+                    <button
+                      key={w.id}
+                      onClick={() => onSwitch(w.id)}
+                      style={{
+                        textAlign: 'left',
+                        padding: '8px 10px',
+                        background: activeWorkflow?.id === w.id ? '#e8f1ff' : 'transparent',
+                        color: activeWorkflow?.id === w.id ? '#0044aa' : '#444',
+                        border: 'none',
+                        borderRadius: 4,
+                        fontSize: 14,
+                        cursor: 'pointer',
+                      }}
+                      title={`From ${w.newsroom_name}`}
+                    >
+                      {w.name}
+                      <span style={{ fontSize: 11, color: '#999', marginLeft: 4 }}>· {w.newsroom_name}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {activeWorkflow && (
+            <div style={{ padding: 12, overflowY: 'auto', flex: 1 }}>
+              <h3 style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#777', margin: '0 0 8px' }}>Agents</h3>
+              {agents.map((a) => (
+                <div
+                  key={a.slug}
+                  draggable={editable}
+                  onDragStart={(e) => {
+                    if (!editable) return;
+                    e.dataTransfer.setData('application/anchor-agent', a.slug);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  style={{
+                    padding: 10,
+                    marginBottom: 8,
+                    border: '1px solid #ddd',
+                    borderRadius: 4,
+                    background: 'white',
+                    cursor: editable ? 'grab' : 'not-allowed',
+                    opacity: editable ? 1 : 0.5,
+                  }}
+                >
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{a.name}</div>
+                  <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{a.description}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </aside>
+
+        {/* Canvas */}
+        <div ref={flowWrapper} style={{ flex: 1, minWidth: 0 }} onDrop={onDrop} onDragOver={onDragOver}>
+          {!activeWorkflow ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#888', flexDirection: 'column', gap: 12 }}>
+              <p style={{ fontSize: 14 }}>No workflow open.</p>
+              {(currentUser.role === 'builder' || currentUser.role === 'admin') && (
+                <button
+                  onClick={onCreateNew}
+                  style={{ padding: '8px 16px', background: '#111', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}
+                >
+                  + Create your first workflow
+                </button>
+              )}
+            </div>
+          ) : (
+            <ReactFlow
+              nodes={flowNodes}
+              edges={flowEdges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onNodeClick={onNodeClick}
+              onPaneClick={onPaneClick}
+              nodeTypes={nodeTypes}
+              fitView
+              nodesDraggable={editable}
+              nodesConnectable={editable}
+              elementsSelectable={editable}
+            >
+              <Background />
+              <Controls />
+            </ReactFlow>
+          )}
+        </div>
+
+        {/* Right panel */}
+        {activeWorkflow && (
+          <aside style={{ width: 320, borderLeft: '1px solid #e5e5e5', padding: 14, overflowY: 'auto', background: '#fafafa' }}>
+            {selectedNode ? (
+              <NodePanel
+                node={selectedNode}
+                incomingEdgeFields={incomingEdgeFields}
+                wfInputs={wfInputs}
+                wfOutput={wfOutput}
+                editable={editable}
+                onConfigChange={updateSelectedConfig}
+                onExposeInput={(field) => exposeAsInput(selectedNode.id, field)}
+                onSetOutput={(field) => setOutputField(selectedNode.id, field)}
+                onDelete={deleteSelected}
+              />
+            ) : (
+              <WorkflowPanel
+                description={description}
+                setDescription={setDescription}
+                editable={editable}
+                wfInputs={wfInputs}
+                wfOutput={wfOutput}
+                runResult={runResult}
+                assignments={assignments}
+                newsroomUsers={newsroomUsers}
+                onAdd={addAssignment}
+                onRemove={removeAssignment}
+                onDelete={onDelete}
+              />
+            )}
+          </aside>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NodePanel({
+  node,
+  incomingEdgeFields,
+  wfInputs,
+  wfOutput,
+  editable,
+  onConfigChange,
+  onExposeInput,
+  onSetOutput,
+  onDelete,
+}: {
+  node: FlowNode;
+  incomingEdgeFields: Set<string>;
+  wfInputs: WfDefinition['inputs'];
+  wfOutput: WfDefinition['output'];
+  editable: boolean;
+  onConfigChange: (field: string, value: string) => void;
+  onExposeInput: (field: string) => void;
+  onSetOutput: (field: string) => void;
+  onDelete: () => void;
+}) {
+  const { agent, config } = node.data;
+  return (
+    <div>
+      <h3 style={{ fontSize: 16, margin: '0 0 4px' }}>{agent.name}</h3>
+      <div style={{ color: '#888', fontSize: 12, marginBottom: 12 }}>id: {node.id}</div>
+      <p style={{ fontSize: 13, color: '#555', marginTop: 0 }}>{agent.description}</p>
+
+      <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#777', margin: '16px 0 6px', letterSpacing: 0.5 }}>Inputs</h4>
+      {Object.entries(agent.inputs).map(([k, schema]) => {
+        const wired = incomingEdgeFields.has(k);
+        const exposed = wfInputs.some((i) => i.to.node === node.id && i.to.field === k);
+        return (
+          <div key={k} style={{ marginBottom: 12, padding: 10, border: '1px solid #eee', borderRadius: 4, background: 'white' }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>
+              {k}
+              {schema.required && <span style={{ color: '#cc3333' }}>*</span>}
+              <span style={{ fontSize: 11, color: '#999', fontWeight: 400, marginLeft: 6 }}>{schema.type}</span>
+            </div>
+            {schema.description && <div style={{ fontSize: 12, color: '#777', marginTop: 4 }}>{schema.description}</div>}
+            {wired ? (
+              <div style={{ fontSize: 12, color: '#0a0', marginTop: 6 }}>← wired from upstream node</div>
+            ) : (
+              <>
+                <textarea
+                  value={config[k] || ''}
+                  onChange={(e) => onConfigChange(k, e.target.value)}
+                  disabled={!editable || exposed}
+                  placeholder={exposed ? 'Provided at run time' : 'Static value (or expose as workflow input)'}
+                  rows={schema.type === 'longtext' ? 3 : 1}
+                  style={{ width: '100%', fontSize: 13, padding: 8, marginTop: 6, border: '1px solid #ddd', borderRadius: 3, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+                />
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#555', marginTop: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={exposed}
+                    onChange={() => onExposeInput(k)}
+                    disabled={!editable}
+                  />
+                  Expose as workflow input "{k}"
+                </label>
+              </>
+            )}
+          </div>
+        );
+      })}
+
+      <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#777', margin: '16px 0 6px', letterSpacing: 0.5 }}>Outputs</h4>
+      {Object.entries(agent.outputs).map(([k]) => {
+        const isOutput = wfOutput.node === node.id && wfOutput.field === k;
+        return (
+          <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, marginBottom: 6 }}>
+            <input
+              type="radio"
+              name="wf-output"
+              checked={isOutput}
+              onChange={() => onSetOutput(k)}
+              disabled={!editable}
+            />
+            <code style={{ fontSize: 12 }}>{k}</code>
+            {isOutput && <span style={{ fontSize: 11, color: '#0a0', marginLeft: 4 }}>workflow output</span>}
+          </label>
+        );
+      })}
+
+      <div style={{ marginTop: 24 }}>
+        <button
+          onClick={onDelete}
+          disabled={!editable}
+          style={{ padding: '8px 12px', background: 'transparent', color: '#b00', border: '1px solid #b00', borderRadius: 4, fontSize: 13, cursor: editable ? 'pointer' : 'not-allowed', opacity: editable ? 1 : 0.5 }}
+        >
+          Delete node
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function WorkflowPanel({
+  description,
+  setDescription,
+  editable,
+  wfInputs,
+  wfOutput,
+  runResult,
+  assignments,
+  newsroomUsers,
+  onAdd,
+  onRemove,
+  onDelete,
+}: {
+  description: string;
+  setDescription: (v: string) => void;
+  editable: boolean;
+  wfInputs: WfDefinition['inputs'];
+  wfOutput: WfDefinition['output'];
+  runResult: unknown | null;
+  assignments: Assignment[];
+  newsroomUsers: NewsroomUser[];
+  onAdd: (userId: string) => void;
+  onRemove: (userId: string) => void;
+  onDelete: () => void;
+}) {
+  const assignedIds = new Set(assignments.map((a) => a.id));
+  const unassigned = newsroomUsers.filter((u) => !assignedIds.has(u.id));
+  return (
+    <div>
+      <h3 style={{ fontSize: 16, margin: '0 0 12px' }}>Workflow</h3>
+
+      <label style={{ display: 'block', marginBottom: 12 }}>
+        <span style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Description</span>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          disabled={!editable}
+          rows={2}
+          style={{ width: '100%', fontSize: 13, padding: 8, border: '1px solid #ddd', borderRadius: 3, resize: 'vertical', boxSizing: 'border-box' }}
+        />
+      </label>
+
+      <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#777', margin: '16px 0 6px', letterSpacing: 0.5 }}>
+        Members ({assignments.length})
+      </h4>
+      <p style={{ fontSize: 12, color: '#666', marginTop: 0 }}>Team members who can run this workflow in User mode.</p>
+      {assignments.length === 0 ? (
+        <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>Nobody assigned yet.</p>
+      ) : (
+        <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0' }}>
+          {assignments.map((a) => (
+            <li key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', fontSize: 13 }}>
+              <span>{a.email} <span style={{ color: '#999', fontSize: 11 }}>· {a.role}</span></span>
+              {editable && (
+                <button
+                  onClick={() => onRemove(a.id)}
+                  style={{ background: 'transparent', border: 'none', color: '#b00', fontSize: 12, cursor: 'pointer' }}
+                >
+                  remove
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {editable && unassigned.length > 0 && (
+        <select
+          onChange={(e) => {
+            if (e.target.value) {
+              onAdd(e.target.value);
+              e.target.value = '';
+            }
+          }}
+          defaultValue=""
+          style={{ width: '100%', fontSize: 13, padding: 8, marginTop: 4, border: '1px solid #ddd', borderRadius: 3 }}
+        >
+          <option value="">+ Add member…</option>
+          {unassigned.map((u) => (
+            <option key={u.id} value={u.id}>{u.email}</option>
+          ))}
+        </select>
+      )}
+
+      <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#777', margin: '16px 0 6px', letterSpacing: 0.5 }}>
+        Inputs ({wfInputs.length})
+      </h4>
+      {wfInputs.length === 0 ? (
+        <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Click a node and tick "Expose as workflow input".</p>
+      ) : (
+        <ul style={{ paddingLeft: 16, margin: 0, fontSize: 13 }}>
+          {wfInputs.map((i, idx) => (
+            <li key={idx}>
+              <code>{i.name}</code> → {i.to.node}.{i.to.field}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#777', margin: '16px 0 6px', letterSpacing: 0.5 }}>Output</h4>
+      {wfOutput.node ? (
+        <p style={{ fontSize: 13, margin: 0 }}>
+          <code>{wfOutput.node}</code>.<code>{wfOutput.field}</code>
+        </p>
+      ) : (
+        <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Click a node and choose an output radio.</p>
+      )}
+
+      {runResult !== null && (
+        <>
+          <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#777', margin: '16px 0 6px', letterSpacing: 0.5 }}>Last run</h4>
+          <pre style={{ fontSize: 11, background: '#111', color: '#0f0', padding: 10, borderRadius: 4, maxHeight: 300, overflow: 'auto' }}>
+            {JSON.stringify(runResult, null, 2)}
+          </pre>
+        </>
+      )}
+
+      {editable && (
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #ddd' }}>
+          <button
+            onClick={onDelete}
+            style={{ padding: '8px 12px', background: 'transparent', color: '#b00', border: '1px solid #b00', borderRadius: 4, fontSize: 12, cursor: 'pointer' }}
+          >
+            Delete workflow
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
