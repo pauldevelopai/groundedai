@@ -87,8 +87,9 @@ export default async function RunIndex() {
         <span style={{ fontSize: 13, color: '#666' }}>
           {me?.display_name || me?.email} · {me?.newsroom_name}
         </span>
+        <Link href="/research" style={{ fontSize: 13, color: '#0066cc' }}>Research →</Link>
         {isBuilderOrAdmin && (
-          <Link href="/builder" style={{ fontSize: 13, color: '#0066cc' }}>Builder →</Link>
+          <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
         )}
         <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
       </header>

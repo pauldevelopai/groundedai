@@ -770,6 +770,7 @@ function Inner({
           <span style={{ fontSize: 12, color: '#888' }}>{currentUser.email} · {currentUser.newsroom_name}</span>
         )}
         <Link href="/run" style={{ fontSize: 12, color: '#0066cc', marginLeft: 12 }}>Run →</Link>
+        <Link href="/research" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Research →</Link>
         {currentUser.role === 'admin' && (
           <Link href="/team" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Team →</Link>
         )}
