@@ -571,6 +571,44 @@ function Inner({
     }
   }
 
+  const [generating, setGenerating] = useState(false);
+  async function generateFromDescription(description: string) {
+    if (!activeWorkflow || !editable || generating) return;
+    if (flowNodes.length > 0) {
+      const ok = window.confirm('This will replace the current canvas with the generated workflow. Continue?');
+      if (!ok) return;
+    }
+    setStatus(null);
+    setGenerating(true);
+    try {
+      const res = await fetch('/api/workflows/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus({ kind: 'error', text: data.error || 'Generation failed' });
+        return;
+      }
+      // Lay nodes left-to-right by topological order — defToFlow uses
+      // index fallback when position is missing, which is good enough.
+      const flow = defToFlow(data.definition, agents);
+      setFlowNodes(flow.nodes);
+      setFlowEdges(flow.edges);
+      setWfInputs(data.definition.inputs || []);
+      setWfOutput(data.definition.output || { node: '', field: '' });
+      if (data.name) setName(data.name);
+      if (data.trigger_phrase) setTriggerPhrase(data.trigger_phrase);
+      setSelectedNodeId(null);
+      setStatus({ kind: 'ok', text: `Generated in ${data.durationMs}ms (cost $${(data.cost?.costUsd ?? 0).toFixed(4)}). Review and Save.` });
+    } catch (e) {
+      setStatus({ kind: 'error', text: e instanceof Error ? e.message : 'Network error' });
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   const ownWorkflows = workflows.filter((w) => w.newsroom_id === currentUser.newsroom_id);
   const sharedWorkflows = workflows.filter((w) => w.newsroom_id !== currentUser.newsroom_id);
 
@@ -799,6 +837,9 @@ function Inner({
                 onAdd={addAssignment}
                 onRemove={removeAssignment}
                 onDelete={onDelete}
+                onGenerate={generateFromDescription}
+                generating={generating}
+                hasNodes={flowNodes.length > 0}
               />
             )}
           </aside>
@@ -918,6 +959,9 @@ function WorkflowPanel({
   onAdd,
   onRemove,
   onDelete,
+  onGenerate,
+  generating,
+  hasNodes,
 }: {
   description: string;
   setDescription: (v: string) => void;
@@ -930,12 +974,59 @@ function WorkflowPanel({
   onAdd: (userId: string) => void;
   onRemove: (userId: string) => void;
   onDelete: () => void;
+  onGenerate: (description: string) => void;
+  generating: boolean;
+  hasNodes: boolean;
 }) {
   const assignedIds = new Set(assignments.map((a) => a.id));
   const unassigned = newsroomUsers.filter((u) => !assignedIds.has(u.id));
+  const [genPrompt, setGenPrompt] = useState('');
   return (
     <div>
       <h3 style={{ fontSize: 16, margin: '0 0 12px' }}>Workflow</h3>
+
+      {editable && (
+        <div style={{ marginBottom: 16, padding: 10, background: '#fff8e6', border: '1px solid #f5d77a', borderRadius: 6 }}>
+          <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#8a6d00', margin: '0 0 6px', letterSpacing: 0.5 }}>
+            {hasNodes ? 'Regenerate from description' : 'Describe & build'}
+          </h4>
+          <p style={{ fontSize: 12, color: '#6b5800', margin: '0 0 8px' }}>
+            {hasNodes
+              ? 'Replace the current canvas with a workflow generated from your description.'
+              : 'Type what this workflow should do and Anchor will compose it for you.'}
+          </p>
+          <textarea
+            value={genPrompt}
+            onChange={(e) => setGenPrompt(e.target.value)}
+            disabled={generating}
+            placeholder='e.g. "When a tip comes in, fact-check it against our archive then draft a follow-up tweet."'
+            rows={4}
+            style={{ width: '100%', fontSize: 13, padding: 8, border: '1px solid #e0c47a', borderRadius: 4, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', background: 'white' }}
+          />
+          <button
+            onClick={() => {
+              if (genPrompt.trim().length >= 10) {
+                onGenerate(genPrompt.trim());
+              }
+            }}
+            disabled={generating || genPrompt.trim().length < 10}
+            style={{
+              marginTop: 8,
+              width: '100%',
+              padding: '8px 12px',
+              background: '#7a5800',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 4,
+              fontSize: 13,
+              cursor: generating ? 'wait' : (genPrompt.trim().length < 10 ? 'not-allowed' : 'pointer'),
+              opacity: genPrompt.trim().length < 10 || generating ? 0.5 : 1,
+            }}
+          >
+            {generating ? 'Generating…' : (hasNodes ? 'Regenerate' : 'Generate workflow')}
+          </button>
+        </div>
+      )}
 
       <label style={{ display: 'block', marginBottom: 12 }}>
         <span style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Description</span>
