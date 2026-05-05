@@ -30,7 +30,7 @@ Builds the finished product across formats: radio scripts, podcast outlines, vid
 
 ## 7. Distributor
 
-A two-way surface across the newsroom's distribution channels. Outbound: posts to social, schedules newsletters, pushes to CMS, and runs WhatsApp broadcasts — always editorially cleared, never autonomous. Inbound: receives tips, submissions, and contributor pieces from WhatsApp, web forms, and tip lines, routes them to Verifier for fact-check and Operations for contributor management, and holds them in a single editor triage queue. In the WhatsApp workflow it schedules sends to broadcast lists and groups, answers audience questions by citing the archive, surfaces incoming community material, and pushes corrections back through the same channel where misinformation originated.
+Distributor manages how the newsroom talks to its audience and how the audience talks back. On the outbound side, it handles social posts, newsletter scheduling, CMS publishing, and WhatsApp broadcasts, with every send cleared by an editor before it goes out. On the inbound side, it gathers tips, submissions, and contributor pieces from WhatsApp, web forms, and tip lines into a single editor triage queue, where the editor decides what moves on to Verifier for fact-checking and what moves on to Operations for contributor handling. WhatsApp is where this two-way design earns its keep: the same channel that carries broadcasts and answers reader questions from the archive is the channel that brings in community tips and carries corrections back to the audiences where misinformation first took hold.
 
 ## 8. Fundraiser
 
