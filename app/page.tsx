@@ -1,16 +1,27 @@
-import Link from 'next/link';
+// / — landing. Signed-out users see a brief intro + sign in. Signed-in users
+// land on /run by default; builders/admins can jump straight to /builder.
 
-export default function Home() {
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { getCurrentSession } from '@/app/lib/session';
+
+export default async function Home() {
+  const session = await getCurrentSession();
+  if (session) {
+    if (session.role === 'user') redirect('/run');
+    // Builders and admins go to Builder by default but the link to /run is everywhere.
+    redirect('/builder');
+  }
+
   return (
-    <main style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 720, margin: '0 auto' }}>
-      <h1>Anchor</h1>
-      <p>Newsroom AI platform — GROUNDED, Develop AI.</p>
-      <ul style={{ listStyle: 'none', padding: 0, marginTop: 24, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <li>
-          <Link href="/builder" style={{ color: '#0066cc', fontSize: 16 }}>Builder mode →</Link>
-          <span style={{ color: '#666', fontSize: 13, marginLeft: 8 }}>compose workflows from agents</span>
-        </li>
-      </ul>
+    <main style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 720, margin: '60px auto' }}>
+      <h1 style={{ marginTop: 0 }}>Anchor</h1>
+      <p style={{ color: '#444', fontSize: 15 }}>
+        Shared AI infrastructure for African newsrooms. Compose AI workflows from prebuilt agents; run them from a simple workflow list.
+      </p>
+      <p>
+        <Link href="/login" style={{ color: '#0066cc', fontSize: 16 }}>Sign in →</Link>
+      </p>
     </main>
   );
 }
