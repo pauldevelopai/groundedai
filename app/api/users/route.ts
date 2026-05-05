@@ -15,10 +15,10 @@ export async function GET() {
   }
 
   const { rows } = await pool.query(
-    `SELECT id, email, role, last_login_at
+    `SELECT id, email, role, whatsapp_number, display_name, last_login_at, created_at
        FROM users
       WHERE newsroom_id = $1 AND is_active = TRUE
-      ORDER BY email`,
+      ORDER BY COALESCE(display_name, email)`,
     [session.newsroomId]
   );
 

@@ -26,6 +26,7 @@ import {
   useState,
   type DragEvent as ReactDragEvent,
 } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ReactFlow,
@@ -104,8 +105,8 @@ type AgentNodeData = {
 
 type FlowNode = Node<AgentNodeData, 'agent'>;
 
-type Assignment = { id: string; email: string; role: string; assigned_at: string };
-type NewsroomUser = { id: string; email: string; role: string };
+type Assignment = { id: string; email: string; role: string; whatsapp_number?: string | null; display_name?: string | null; assigned_at: string };
+type NewsroomUser = { id: string; email: string; role: string; whatsapp_number?: string | null; display_name?: string | null };
 
 const EMPTY_DEFINITION: WfDefinition = { nodes: [], edges: [], inputs: [], output: { node: '', field: '' } };
 
@@ -670,6 +671,9 @@ function Inner({
         ) : (
           <span style={{ fontSize: 12, color: '#888' }}>{currentUser.email} · {currentUser.newsroom_name}</span>
         )}
+        {currentUser.role === 'admin' && (
+          <Link href="/team" style={{ fontSize: 12, color: '#0066cc', marginLeft: 12 }}>Team →</Link>
+        )}
       </header>
 
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -1049,7 +1053,15 @@ function WorkflowPanel({
         <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0' }}>
           {assignments.map((a) => (
             <li key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', fontSize: 13 }}>
-              <span>{a.email} <span style={{ color: '#999', fontSize: 11 }}>· {a.role}</span></span>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span>
+                  {a.display_name || a.email}
+                  <span style={{ color: '#999', fontSize: 11, marginLeft: 6 }}>· {a.role}</span>
+                </span>
+                {a.whatsapp_number && (
+                  <span style={{ color: '#666', fontSize: 11 }}>📱 {a.whatsapp_number}</span>
+                )}
+              </div>
               {editable && (
                 <button
                   onClick={() => onRemove(a.id)}
@@ -1075,9 +1087,17 @@ function WorkflowPanel({
         >
           <option value="">+ Add member…</option>
           {unassigned.map((u) => (
-            <option key={u.id} value={u.id}>{u.email}</option>
+            <option key={u.id} value={u.id}>
+              {u.display_name || u.email}
+              {u.whatsapp_number ? ` — ${u.whatsapp_number}` : ''}
+            </option>
           ))}
         </select>
+      )}
+      {editable && unassigned.length === 0 && assignments.length === 0 && (
+        <p style={{ fontSize: 12, marginTop: 4 }}>
+          <Link href="/team" style={{ color: '#0066cc' }}>Invite team members →</Link>
+        </p>
       )}
 
       <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#777', margin: '16px 0 6px', letterSpacing: 0.5 }}>

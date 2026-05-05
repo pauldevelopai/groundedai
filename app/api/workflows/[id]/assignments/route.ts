@@ -33,11 +33,12 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   const { rows } = await pool.query(
-    `SELECT u.id, u.email, u.role, a.assigned_at, a.assigned_by
+    `SELECT u.id, u.email, u.role, u.whatsapp_number, u.display_name,
+            a.assigned_at, a.assigned_by
        FROM workflow_assignments a
        JOIN users u ON u.id = a.user_id
       WHERE a.workflow_id = $1
-      ORDER BY u.email`,
+      ORDER BY COALESCE(u.display_name, u.email)`,
     [id]
   );
   return NextResponse.json({ assignments: rows });
