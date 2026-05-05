@@ -49,12 +49,21 @@ import {
 import '@xyflow/react/dist/style.css';
 import WorkflowRunner from './WorkflowRunner';
 
+export type AgentConfigField =
+  | { type: 'number'; default: number; min?: number; max?: number; step?: number; label?: string; description?: string }
+  | { type: 'boolean'; default: boolean; label?: string; description?: string }
+  | { type: 'select'; default: string; options: { value: string; label: string; description?: string }[]; label?: string; description?: string }
+  | { type: 'string'; default: string; label?: string; description?: string; placeholder?: string }
+  | { type: 'longtext'; default: string; label?: string; description?: string; placeholder?: string };
+
 export type AgentMeta = {
   slug: string;
   name: string;
+  icon?: string;
   description: string;
   triggers: string[];
   inputs: Record<string, { type: string; required?: boolean; description?: string }>;
+  config?: Record<string, AgentConfigField>;
   outputs: Record<string, { type: string; description?: string }>;
   route: string;
 };
@@ -173,26 +182,66 @@ function flowToDef(
   };
 }
 
+function summariseConfig(agent: AgentMeta, config: Record<string, string>): string[] {
+  const lines: string[] = [];
+  if (!agent.config) return lines;
+  for (const [key, schema] of Object.entries(agent.config)) {
+    const raw = config[key];
+    const value = raw === undefined || raw === '' ? schema.default : raw;
+    if (value === undefined || value === null || value === '') continue;
+    const label = schema.label || key;
+    let display: string;
+    if (schema.type === 'boolean') {
+      if (!value || value === 'false') continue; // hide off-by-default booleans
+      display = label;
+    } else if (schema.type === 'select') {
+      const opt = schema.options.find((o) => o.value === String(value));
+      display = `${label}: ${opt?.label || value}`;
+    } else {
+      display = `${label}: ${value}`;
+    }
+    lines.push(display);
+    if (lines.length >= 3) break; // cap
+  }
+  return lines;
+}
+
 function AgentNode({ data, selected }: NodeProps<FlowNode>) {
-  const { agent } = data;
+  const { agent, config } = data;
   const inputEntries = Object.entries(agent.inputs);
   const outputEntries = Object.entries(agent.outputs);
+  const summary = summariseConfig(agent, config);
   return (
     <div
       style={{
         background: 'white',
         border: selected ? '2px solid #0066cc' : '1px solid #bbb',
-        borderRadius: 6,
-        boxShadow: selected ? '0 0 0 3px rgba(0,102,204,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
-        minWidth: 220,
+        borderRadius: 8,
+        boxShadow: selected ? '0 0 0 3px rgba(0,102,204,0.15)' : '0 2px 6px rgba(0,0,0,0.06)',
+        minWidth: 240,
         fontSize: 13,
       }}
     >
-      <div style={{ background: '#f7f7f7', padding: '8px 12px', borderBottom: '1px solid #eee', borderRadius: '6px 6px 0 0' }}>
-        <div style={{ fontWeight: 600 }}>{agent.name}</div>
-        <div style={{ color: '#888', fontSize: 11 }}>{agent.slug}</div>
+      <div
+        style={{
+          padding: '10px 12px',
+          borderBottom: '1px solid #eee',
+          borderRadius: '8px 8px 0 0',
+          display: 'flex',
+          gap: 10,
+          alignItems: 'flex-start',
+          background: 'linear-gradient(180deg,#fafbfd,#f4f6fa)',
+        }}
+      >
+        <div style={{ fontSize: 22, lineHeight: '22px', flexShrink: 0 }}>{agent.icon || '⚙️'}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>{agent.name}</div>
+          <div style={{ color: '#666', fontSize: 11, marginTop: 2, lineHeight: 1.35 }}>
+            {agent.description.split('.')[0]}.
+          </div>
+        </div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {inputEntries.map(([k, schema]) => (
             <div key={k} style={{ position: 'relative', padding: '0 12px 0 14px' }}>
@@ -223,6 +272,25 @@ function AgentNode({ data, selected }: NodeProps<FlowNode>) {
           ))}
         </div>
       </div>
+      {summary.length > 0 && (
+        <div
+          style={{
+            padding: '8px 12px',
+            borderTop: '1px dashed #eee',
+            background: '#fafafa',
+            borderRadius: '0 0 8px 8px',
+            fontSize: 11,
+            color: '#555',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          {summary.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -983,6 +1051,22 @@ function NodePanel({
         );
       })}
 
+      {agent.config && Object.keys(agent.config).length > 0 && (
+        <>
+          <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#777', margin: '16px 0 6px', letterSpacing: 0.5 }}>Knobs</h4>
+          {Object.entries(agent.config).map(([k, schema]) => (
+            <ConfigField
+              key={k}
+              fieldKey={k}
+              schema={schema}
+              value={config[k]}
+              editable={editable}
+              onChange={(v) => onConfigChange(k, v)}
+            />
+          ))}
+        </>
+      )}
+
       <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#777', margin: '16px 0 6px', letterSpacing: 0.5 }}>Outputs</h4>
       {Object.entries(agent.outputs).map(([k]) => {
         const isOutput = wfOutput.node === node.id && wfOutput.field === k;
@@ -1010,6 +1094,116 @@ function NodePanel({
           Delete node
         </button>
       </div>
+    </div>
+  );
+}
+
+function ConfigField({
+  fieldKey,
+  schema,
+  value,
+  editable,
+  onChange,
+}: {
+  fieldKey: string;
+  schema: AgentConfigField;
+  value: string | undefined;
+  editable: boolean;
+  onChange: (v: string) => void;
+}) {
+  const label = schema.label || fieldKey;
+  const current = value === undefined || value === '' ? String(schema.default ?? '') : value;
+  return (
+    <div style={{ marginBottom: 12, padding: 10, border: '1px solid #eee', borderRadius: 4, background: 'white' }}>
+      <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
+      {schema.description && (
+        <div style={{ fontSize: 11, color: '#777', marginTop: 4 }}>{schema.description}</div>
+      )}
+      {schema.type === 'select' && (
+        <select
+          value={current}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={!editable}
+          style={{ width: '100%', fontSize: 13, padding: 8, marginTop: 6, border: '1px solid #ddd', borderRadius: 3, background: 'white' }}
+        >
+          {schema.options.map((o) => (
+            <option key={o.value} value={o.value} title={o.description || ''}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      )}
+      {schema.type === 'number' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          {typeof schema.min === 'number' && typeof schema.max === 'number' ? (
+            <>
+              <input
+                type="range"
+                min={schema.min}
+                max={schema.max}
+                step={schema.step ?? 1}
+                value={current}
+                onChange={(e) => onChange(e.target.value)}
+                disabled={!editable}
+                style={{ flex: 1 }}
+              />
+              <input
+                type="number"
+                min={schema.min}
+                max={schema.max}
+                step={schema.step ?? 1}
+                value={current}
+                onChange={(e) => onChange(e.target.value)}
+                disabled={!editable}
+                style={{ width: 70, fontSize: 13, padding: 4, border: '1px solid #ddd', borderRadius: 3 }}
+              />
+            </>
+          ) : (
+            <input
+              type="number"
+              step={schema.step ?? 1}
+              value={current}
+              onChange={(e) => onChange(e.target.value)}
+              disabled={!editable}
+              style={{ width: '100%', fontSize: 13, padding: 8, border: '1px solid #ddd', borderRadius: 3 }}
+            />
+          )}
+        </div>
+      )}
+      {schema.type === 'boolean' && (() => {
+        const isOn = current === 'true' || (current === '' && schema.default === true);
+        return (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, fontSize: 12, color: '#444' }}>
+            <input
+              type="checkbox"
+              checked={isOn}
+              onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
+              disabled={!editable}
+            />
+            {isOn ? 'On' : 'Off'}
+          </label>
+        );
+      })()}
+      {schema.type === 'string' && (
+        <input
+          type="text"
+          value={current}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={!editable}
+          placeholder={schema.placeholder || ''}
+          style={{ width: '100%', fontSize: 13, padding: 8, marginTop: 6, border: '1px solid #ddd', borderRadius: 3, boxSizing: 'border-box' }}
+        />
+      )}
+      {schema.type === 'longtext' && (
+        <textarea
+          value={current}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={!editable}
+          placeholder={schema.placeholder || ''}
+          rows={3}
+          style={{ width: '100%', fontSize: 13, padding: 8, marginTop: 6, border: '1px solid #ddd', borderRadius: 3, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+        />
+      )}
     </div>
   );
 }
