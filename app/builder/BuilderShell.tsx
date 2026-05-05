@@ -62,7 +62,7 @@ export type AgentMeta = {
   icon?: string;
   description: string;
   triggers: string[];
-  inputs: Record<string, { type: string; required?: boolean; description?: string }>;
+  inputs: Record<string, { type: string; required?: boolean; label?: string; description?: string }>;
   config?: Record<string, AgentConfigField>;
   outputs: Record<string, { type: string; description?: string }>;
   route: string;
@@ -345,10 +345,31 @@ function Inner({
   );
   const [flowNodes, setFlowNodes] = useState<FlowNode[]>(initialFlow.nodes);
   const [flowEdges, setFlowEdges] = useState<Edge[]>(initialFlow.edges);
-  const [wfInputs, setWfInputs] = useState<WfDefinition['inputs']>(activeWorkflow?.definition.inputs || []);
   const [wfOutput, setWfOutput] = useState<WfDefinition['output']>(
     activeWorkflow?.definition.output || { node: '', field: '' }
   );
+
+  // Workflow inputs are AUTO-DERIVED from the canvas: every input field on
+  // every node that is NOT wired by an incoming edge becomes a workflow
+  // input the user fills at run time. Multiple nodes with the same input
+  // field name share a single workflow input.
+  const wfInputs = useMemo<WfDefinition['inputs']>(() => {
+    const seen = new Set<string>();
+    const out: WfDefinition['inputs'] = [];
+    for (const node of flowNodes) {
+      for (const fieldName of Object.keys(node.data.agent.inputs)) {
+        const wired = flowEdges.some(
+          (e) => e.target === node.id && e.targetHandle === `in-${fieldName}`
+        );
+        if (wired) continue;
+        const key = `${fieldName}@${node.id}@${fieldName}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ name: fieldName, to: { node: node.id, field: fieldName } });
+      }
+    }
+    return out;
+  }, [flowNodes, flowEdges]);
   const [name, setName] = useState(activeWorkflow?.name || '');
   const [triggerPhrase, setTriggerPhrase] = useState(activeWorkflow?.trigger_phrase || '');
   const [description, setDescription] = useState(activeWorkflow?.description || '');
@@ -371,7 +392,6 @@ function Inner({
     if (!activeWorkflow) {
       setFlowNodes([]);
       setFlowEdges([]);
-      setWfInputs([]);
       setWfOutput({ node: '', field: '' });
       setName('');
       setTriggerPhrase('');
@@ -388,7 +408,6 @@ function Inner({
     const flow = defToFlow(activeWorkflow.definition, agents);
     setFlowNodes(flow.nodes);
     setFlowEdges(flow.edges);
-    setWfInputs(activeWorkflow.definition.inputs || []);
     setWfOutput(activeWorkflow.definition.output || { node: '', field: '' });
     setName(activeWorkflow.name);
     setTriggerPhrase(activeWorkflow.trigger_phrase || '');
@@ -450,16 +469,6 @@ function Inner({
   const onPaneClick = useCallback(() => setSelectedNodeId(null), []);
 
   const selectedNode = flowNodes.find((n) => n.id === selectedNodeId) || null;
-  const incomingEdgeFields = useMemo(() => {
-    const set = new Set<string>();
-    if (!selectedNode) return set;
-    for (const e of flowEdges) {
-      if (e.target === selectedNode.id && e.targetHandle) {
-        set.add(e.targetHandle.replace(/^in-/, ''));
-      }
-    }
-    return set;
-  }, [selectedNode, flowEdges]);
 
   const updateSelectedConfig = useCallback(
     (field: string, value: string) => {
@@ -479,7 +488,6 @@ function Inner({
     if (!selectedNode) return;
     setFlowNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
     setFlowEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
-    setWfInputs((ins) => ins.filter((i) => i.to.node !== selectedNode.id));
     if (wfOutput.node === selectedNode.id) setWfOutput({ node: '', field: '' });
     setSelectedNodeId(null);
   }, [selectedNode, wfOutput]);
@@ -634,14 +642,6 @@ function Inner({
     }
   }
 
-  const exposeAsInput = (nodeId: string, field: string) => {
-    const exists = wfInputs.find((i) => i.to.node === nodeId && i.to.field === field);
-    if (exists) {
-      setWfInputs((ins) => ins.filter((i) => !(i.to.node === nodeId && i.to.field === field)));
-    } else {
-      setWfInputs((ins) => [...ins, { name: field, to: { node: nodeId, field } }]);
-    }
-  };
   const setOutputField = (nodeId: string, field: string) => setWfOutput({ node: nodeId, field });
 
   async function addAssignment(userId: string) {
@@ -695,7 +695,6 @@ function Inner({
       const flow = defToFlow(data.definition, agents);
       setFlowNodes(flow.nodes);
       setFlowEdges(flow.edges);
-      setWfInputs(data.definition.inputs || []);
       setWfOutput(data.definition.output || { node: '', field: '' });
       if (data.name) setName(data.name);
       if (data.trigger_phrase) setTriggerPhrase(data.trigger_phrase);
@@ -945,12 +944,11 @@ function Inner({
             {selectedNode ? (
               <NodePanel
                 node={selectedNode}
-                incomingEdgeFields={incomingEdgeFields}
-                wfInputs={wfInputs}
+                flowEdges={flowEdges}
+                flowNodes={flowNodes}
                 wfOutput={wfOutput}
                 editable={editable}
                 onConfigChange={updateSelectedConfig}
-                onExposeInput={(field) => exposeAsInput(selectedNode.id, field)}
                 onSetOutput={(field) => setOutputField(selectedNode.id, field)}
                 onDelete={deleteSelected}
               />
@@ -986,67 +984,77 @@ function Inner({
 
 function NodePanel({
   node,
-  incomingEdgeFields,
-  wfInputs,
+  flowEdges,
+  flowNodes,
   wfOutput,
   editable,
   onConfigChange,
-  onExposeInput,
   onSetOutput,
   onDelete,
 }: {
   node: FlowNode;
-  incomingEdgeFields: Set<string>;
-  wfInputs: WfDefinition['inputs'];
+  flowEdges: Edge[];
+  flowNodes: FlowNode[];
   wfOutput: WfDefinition['output'];
   editable: boolean;
   onConfigChange: (field: string, value: string) => void;
-  onExposeInput: (field: string) => void;
   onSetOutput: (field: string) => void;
   onDelete: () => void;
 }) {
   const { agent, config } = node.data;
+  // For each input, find the upstream node label (if wired) so the panel can
+  // show "Coming from Archivist" instead of just "wired".
+  function upstreamLabelFor(fieldName: string): string | null {
+    const edge = flowEdges.find(
+      (e) => e.target === node.id && e.targetHandle === `in-${fieldName}`
+    );
+    if (!edge) return null;
+    const sourceNode = flowNodes.find((n) => n.id === edge.source);
+    const fromField = (edge.sourceHandle || '').replace(/^out-/, '');
+    if (!sourceNode) return `another node's "${fromField}"`;
+    return `${sourceNode.data.agent.name}'s "${fromField}"`;
+  }
   return (
     <div>
-      <h3 style={{ fontSize: 16, margin: '0 0 4px' }}>{agent.name}</h3>
+      <h3 style={{ fontSize: 16, margin: '0 0 4px' }}>{agent.icon || ''} {agent.name}</h3>
       <div style={{ color: '#888', fontSize: 12, marginBottom: 12 }}>id: {node.id}</div>
       <p style={{ fontSize: 13, color: '#555', marginTop: 0 }}>{agent.description}</p>
 
       <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#777', margin: '16px 0 6px', letterSpacing: 0.5 }}>Inputs</h4>
+      <p style={{ fontSize: 11, color: '#888', margin: '0 0 8px' }}>
+        Each input is either wired from another agent on the canvas, or filled in by the user when they run the workflow.
+      </p>
       {Object.entries(agent.inputs).map(([k, schema]) => {
-        const wired = incomingEdgeFields.has(k);
-        const exposed = wfInputs.some((i) => i.to.node === node.id && i.to.field === k);
+        const wiredFrom = upstreamLabelFor(k);
+        const wired = wiredFrom !== null;
+        const label = schema.label || k;
         return (
           <div key={k} style={{ marginBottom: 12, padding: 10, border: '1px solid #eee', borderRadius: 4, background: 'white' }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>
-              {k}
-              {schema.required && <span style={{ color: '#cc3333' }}>*</span>}
-              <span style={{ fontSize: 11, color: '#999', fontWeight: 400, marginLeft: 6 }}>{schema.type}</span>
+              {label}
+              {schema.required && <span style={{ color: '#cc3333', marginLeft: 4 }}>*</span>}
+              <span style={{ fontSize: 11, color: '#999', fontWeight: 400, marginLeft: 6 }}>
+                {schema.required ? '' : '(optional) · '}{schema.type}
+              </span>
             </div>
-            {schema.description && <div style={{ fontSize: 12, color: '#777', marginTop: 4 }}>{schema.description}</div>}
-            {wired ? (
-              <div style={{ fontSize: 12, color: '#0a0', marginTop: 6 }}>← wired from upstream node</div>
-            ) : (
-              <>
-                <textarea
-                  value={config[k] || ''}
-                  onChange={(e) => onConfigChange(k, e.target.value)}
-                  disabled={!editable || exposed}
-                  placeholder={exposed ? 'Provided at run time' : 'Static value (or expose as workflow input)'}
-                  rows={schema.type === 'longtext' ? 3 : 1}
-                  style={{ width: '100%', fontSize: 13, padding: 8, marginTop: 6, border: '1px solid #ddd', borderRadius: 3, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
-                />
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#555', marginTop: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={exposed}
-                    onChange={() => onExposeInput(k)}
-                    disabled={!editable}
-                  />
-                  Expose as workflow input "{k}"
-                </label>
-              </>
+            {schema.description && (
+              <div style={{ fontSize: 12, color: '#666', marginTop: 4, lineHeight: 1.4 }}>{schema.description}</div>
             )}
+            <div
+              style={{
+                marginTop: 8,
+                padding: '6px 10px',
+                borderRadius: 4,
+                fontSize: 12,
+                background: wired ? '#e7f6e7' : '#eef4fb',
+                color: wired ? '#1a5d1a' : '#0044aa',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              {wired ? <>🔗 Coming from {wiredFrom}</> : <>📋 Filled in by the user when they run this workflow</>}
+            </div>
           </div>
         );
       })}

@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 
 export type RunnerWorkflow = {
   id: string;
@@ -15,33 +15,108 @@ export type RunnerWorkflow = {
   problem_statement: string | null;
   problem_category: string | null;
   user_instructions: string | null;
-  definition: { inputs: { name: string; to: { node: string; field: string } }[] };
+  definition: {
+    inputs: { name: string; to: { node: string; field: string } }[];
+    nodes?: { id: string; agent_slug: string }[];
+  };
+};
+
+export type AgentInputMeta = Record<string, {
+  required?: boolean;
+  label?: string;
+  description?: string;
+  type?: string;
+}>;
+
+export type AgentCatalogEntry = {
+  slug: string;
+  inputs: AgentInputMeta;
 };
 
 export default function WorkflowRunner({
   workflow,
+  agents,
   unsavedDraftDefinition,
   onClose,
   compact,
 }: {
   workflow: RunnerWorkflow;
   /**
+   * The agent catalog so the runner can look up label/required/type per
+   * input. Builder passes its in-memory list; User mode loads it from
+   * /api/agents on mount if not supplied.
+   */
+  agents?: AgentCatalogEntry[];
+  /**
    * If provided, run uses this in-memory definition instead of the persisted
    * one. Builder uses this so testing reflects unsaved canvas changes.
    * User mode passes nothing — runs the persisted definition.
    */
-  unsavedDraftDefinition?: { inputs: { name: string; to: { node: string; field: string } }[] };
+  unsavedDraftDefinition?: { inputs: { name: string; to: { node: string; field: string } }[]; nodes?: { id: string; agent_slug: string }[] };
   onClose?: () => void;
   compact?: boolean;
 }) {
-  const inputDefs = (unsavedDraftDefinition || workflow.definition).inputs || [];
-  // Dedupe by input name — multiple nodes can share an input port
+  const def = unsavedDraftDefinition || workflow.definition;
+  const inputDefs = def.inputs || [];
+
+  // Look up { required, label, description, type } per workflow-input field
+  // by following the mapping back to the target node's agent + input.
+  const [agentCatalog, setAgentCatalog] = useState<AgentCatalogEntry[] | null>(agents ?? null);
+  useEffect(() => {
+    if (agentCatalog) return;
+    fetch('/api/agents')
+      .then((r) => r.json())
+      .then((d) => setAgentCatalog(d.agents || []))
+      .catch(() => setAgentCatalog([]));
+  }, [agentCatalog]);
+
+  // Per workflow input name (deduped), pick the strictest required + first label/desc found.
+  const inputMeta = new Map<string, { required: boolean; label: string; description: string; type: string }>();
+  if (agentCatalog) {
+    const agentBySlug = new Map(agentCatalog.map((a) => [a.slug, a]));
+    const nodes = def.nodes || workflow.definition.nodes || [];
+    const nodeBySlug = new Map(nodes.map((n) => [n.id, n.agent_slug]));
+    for (const inp of inputDefs) {
+      const slug = nodeBySlug.get(inp.to.node);
+      if (!slug) continue;
+      const agent = agentBySlug.get(slug);
+      if (!agent) continue;
+      const fld = agent.inputs[inp.to.field];
+      if (!fld) continue;
+      const cur = inputMeta.get(inp.name);
+      const label = fld.label || inp.name;
+      if (cur) {
+        inputMeta.set(inp.name, {
+          required: cur.required || !!fld.required,
+          label: cur.label,
+          description: cur.description,
+          type: cur.type,
+        });
+      } else {
+        inputMeta.set(inp.name, {
+          required: !!fld.required,
+          label,
+          description: fld.description || '',
+          type: fld.type || 'longtext',
+        });
+      }
+    }
+  }
+  // Fallback for input names without resolved meta (no catalog yet, or unknown agent).
   const inputNames = Array.from(new Set(inputDefs.map((i) => i.name)));
+  for (const n of inputNames) {
+    if (!inputMeta.has(n)) inputMeta.set(n, { required: true, label: n, description: '', type: 'longtext' });
+  }
 
   const [values, setValues] = useState<Record<string, string>>({});
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ output: unknown; durationMs: number; totalCost: { costUsd: number } } | null>(null);
+
+  const missingRequired = inputNames.some((n) => {
+    const meta = inputMeta.get(n);
+    return meta?.required && !values[n]?.trim();
+  });
 
   async function onRun(e: FormEvent) {
     e.preventDefault();
@@ -49,10 +124,16 @@ export default function WorkflowRunner({
     setRunning(true);
     setResult(null);
     try {
+      // Strip empty optional values so the agent can apply its own defaults.
+      const submitInputs: Record<string, string> = {};
+      for (const n of inputNames) {
+        const v = values[n]?.trim();
+        if (v) submitInputs[n] = v;
+      }
       const res = await fetch(`/api/workflows/${workflow.id}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputs: values }),
+        body: JSON.stringify({ inputs: submitInputs }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -107,23 +188,32 @@ export default function WorkflowRunner({
           {inputNames.length === 0 ? (
             <p style={{ fontSize: 13, color: '#888' }}>This workflow takes no inputs — just press Run.</p>
           ) : (
-            inputNames.map((name) => (
-              <label key={name} style={{ display: 'block', marginBottom: 12 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 4 }}>{name}</span>
-                <textarea
-                  value={values[name] || ''}
-                  onChange={(e) => setValues((v) => ({ ...v, [name]: e.target.value }))}
-                  rows={4}
-                  required
-                  placeholder={`Provide ${name}…`}
-                  style={{ width: '100%', fontSize: 14, padding: 10, border: '1px solid #ccc', borderRadius: 4, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
-                />
-              </label>
-            ))
+            inputNames.map((name) => {
+              const meta = inputMeta.get(name) || { required: true, label: name, description: '', type: 'longtext' };
+              return (
+                <label key={name} style={{ display: 'block', marginBottom: 14 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 2 }}>
+                    {meta.label}
+                    {!meta.required && <span style={{ color: '#999', fontWeight: 400, marginLeft: 6 }}>(optional)</span>}
+                  </span>
+                  {meta.description && (
+                    <span style={{ fontSize: 12, color: '#666', display: 'block', marginBottom: 6 }}>{meta.description}</span>
+                  )}
+                  <textarea
+                    value={values[name] || ''}
+                    onChange={(e) => setValues((v) => ({ ...v, [name]: e.target.value }))}
+                    rows={meta.type === 'string' ? 1 : 4}
+                    required={meta.required}
+                    placeholder={meta.required ? `Provide ${meta.label.toLowerCase()}…` : 'Leave blank to skip'}
+                    style={{ width: '100%', fontSize: 14, padding: 10, border: '1px solid #ccc', borderRadius: 4, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+                  />
+                </label>
+              );
+            })
           )}
           <button
             type="submit"
-            disabled={running || inputNames.some((n) => !values[n]?.trim())}
+            disabled={running || missingRequired}
             style={{
               padding: '10px 18px',
               background: '#0066cc',
@@ -132,7 +222,7 @@ export default function WorkflowRunner({
               borderRadius: 6,
               fontSize: 14,
               cursor: running ? 'wait' : 'pointer',
-              opacity: running || inputNames.some((n) => !values[n]?.trim()) ? 0.5 : 1,
+              opacity: running || missingRequired ? 0.5 : 1,
             }}
           >
             {running ? 'Running…' : 'Run'}
