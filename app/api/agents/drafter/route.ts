@@ -1,18 +1,7 @@
-// POST /api/agents/verifier
-//
-// Auth-required. Runs the Verifier agent against submitted article text.
-// Opens a workflow_runs row upfront, updates with output (or error) on
-// completion. Cost is logged via lib/claude.js → lib/costs.js into api_costs.
-//
-// Body: { articleText: string, specificClaims?: string[] }
-// Response (200): { runId, result, cost, durationMs }
-// Response (4xx/5xx): { error, runId? }
-
 import { NextResponse } from 'next/server';
 import { getCurrentSession } from '@/app/lib/session';
 import { pool } from '@/lib/db';
-import { verify } from '@/lib/agents/verifier';
-import { retrieveContext } from '@/lib/agents/archivist';
+import { draft } from '@/lib/agents/drafter';
 
 export async function POST(req: Request) {
   const session = await getCurrentSession();
@@ -20,62 +9,45 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
-  let body: { articleText?: string; specificClaims?: string[] };
+  let body: { articleText?: string; taskType?: string; targetLanguage?: string; numDrafts?: number };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { articleText, specificClaims } = body;
+  const { articleText, taskType, targetLanguage, numDrafts } = body;
+  
   if (!articleText || typeof articleText !== 'string') {
     return NextResponse.json({ error: 'articleText is required' }, { status: 400 });
   }
-  if (articleText.length < 50) {
-    return NextResponse.json(
-      { error: 'articleText must be at least 50 characters' },
-      { status: 400 }
-    );
+  if (!taskType || typeof taskType !== 'string') {
+    return NextResponse.json({ error: 'taskType is required' }, { status: 400 });
   }
 
   // Open the run up front — gives us a row to update on success or fail.
   const runInsert = await pool.query(
     `INSERT INTO workflow_runs (newsroom_id, user_id, agent, status, input)
-     VALUES ($1, $2, 'verifier', 'running', $3)
+     VALUES ($1, $2, 'drafter', 'running', $3)
      RETURNING id`,
     [
       session.newsroomId,
       session.userId,
-      JSON.stringify({ articleText, specificClaims: specificClaims || null }),
+      JSON.stringify({ articleText, taskType, targetLanguage, numDrafts }),
     ]
   );
   const runId = runInsert.rows[0].id;
 
   try {
-    // 1. Retrieve context from the archive based on the article text
-    // (We pass a snippet or the full text to get relevant past coverage)
-    let archiveContext;
-    try {
-      // Just use the first 500 chars as the search query so we don't blow up the embed endpoint
-      const querySnippet = articleText.substring(0, 500);
-      archiveContext = await retrieveContext({ 
-        newsroomId: session.newsroomId, 
-        query: querySnippet 
-      });
-    } catch (e) {
-      console.error('Failed to retrieve archive context:', e);
-      // Fallback gracefully if archivist fails
-    }
-
-    // 2. Run the verifier with the archive context
-    const { result, cost, durationMs } = await verify({
+    const { result, cost, durationMs } = await draft({
       articleText,
-      specificClaims,
-      archiveContext,
+      taskType,
+      targetLanguage,
+      numDrafts,
       context: {
         newsroomId: session.newsroomId,
         userId: session.userId,
-        endpoint: '/api/agents/verifier',
+        endpoint: '/api/agents/drafter',
       },
     });
 
