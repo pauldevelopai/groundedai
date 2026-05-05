@@ -1,24 +1,28 @@
 # Anchor — Build Hand-off
 
-For the AI agent picking up this build. Paul is now driving Anchor from **Claude Code inside VS Code** (this file was last updated by Claude Code in the standalone CLI, which Paul retired for this project on 2026-05-05).
+For the AI agent picking up this build. Paul is now driving Anchor from **Claude Code inside VS Code**.
 
-**Read this entire file before touching code.** Then read [`docs/BRIEFING.md`](BRIEFING.md) for full product scope and [`../REUSE.md`](../REUSE.md) for the lift inventory.
+**Read this entire file before touching code.** Then read:
+- [`docs/AGENTS.md`](AGENTS.md) — **canonical agent definitions** (the 10 agents, verbatim from Paul's final spec). This is the source of truth for what each agent does. Registry descriptions and all references must match it.
+- [`docs/BRIEFING.md`](BRIEFING.md) — original product brief (older; AGENTS.md supersedes any agent-scope conflict).
+- [`../REUSE.md`](../REUSE.md) — lift inventory.
 
-Last updated 2026-05-05 by Claude Code (CLI) after pushing the Cohere → BGE-M3 swap and the Step 4c+4d catch-up.
+Last updated 2026-05-05 PM after Paul's final agent spec absorbed the morning concept-note PDF and pilot scope was widened — only WhatsApp and Lightsail are post-pilot now.
 
 ---
 
-## 0. What changed in this last session (2026-05-05)
+## 0. What changed in this session (2026-05-05)
 
-1. **Pilot agent set is now exactly 10** (was 13 earlier in the same session — Paul published the official Anchor summary which lists 10). Removed: Sourcer, Media Verifier, Compliance. Renamed: Funder → **Fundraiser**. The 10 are listed in §2.
-2. **Governance layer dropped.** No Compliance agent, no jurisdiction packs (POPIA / Zimbabwe / Zambia), no audit-export, no `lib/governance.js`. That feature set has been deferred to "a different system" outside Anchor. **The internal `audit_log` table stays** — it's plain debugging/transparency, not user-facing governance. (Flag this assumption if Paul disagrees.)
-3. **Pilot deployment is local-only.** WhatsApp delivery and Lightsail deploy are **post-pilot**. WhatsApp is part of the official product story (§2 User mode mentions it), but the build sequencing keeps it after the pilot is signed off.
-4. **User mode is a chat surface.** Per the official summary: *"They don't see agents or prompts. They see a chat surface that does the thing they need."* Builder mode (desktop web app) composes workflows; User mode (chat surface, eventually WhatsApp) consumes them. Step 5 builds both.
-5. **Verifier needs a source-credibility map for SA + Zimbabwe + Zambia + Kenya.** These are the four primary markets. Pilot newsrooms remain 5 ZimZam, but the credibility map is built for all 4 countries up front so next cohort (SA + KE) inherits it. Track as a Verifier enhancement, not a new agent.
-6. **Open-source-first rule locked.** Every non-LLM module (embeddings, vision, OCR, translation, speech, …) **must be fully free at any usage volume** — i.e. OSS we self-host. Free-tier hosted APIs are NOT acceptable. Anthropic Claude is the only allowed paid dependency.
-7. **Cohere replaced.** Embeddings now run locally via `@huggingface/transformers` against `Xenova/bge-m3` (BAAI/bge-m3 ONNX). Same 1024-dim output, no schema migration. See [`lib/storage/embed.js`](../lib/storage/embed.js). Smoke-tested. No env var required.
-8. **Repo pushed to GitHub.** Remote is `https://github.com/pauldevelopai/anchor.git`. (The handoff's older "REPO HAS NO GIT REMOTE" warning is gone for good.)
-9. **Repo lives at a new path** on Paul's Drive mount — `/Users/paulmcnally/Developai Dropbox/Paul McNally/DROPBOX/ONMAC/PYTHON 2025/anchor`. Cosmetic only.
+1. **Pilot scope = the full PDF concept note (final agent spec, 2026-05-05 PM).** Only **WhatsApp delivery** and **Lightsail deploy** are post-pilot. Everything else — full Producer (audio + video + audiograms), full Translator (multi-model routing + glossary + edit feedback), full two-way Distributor, full Operations (incl. contributor mgmt), Audience clones with default low-data/vernacular/feature-phone personas, the learning layer, the newsroom profile object — is **in pilot**.
+2. **Canonical agent text moved to [`docs/AGENTS.md`](AGENTS.md).** The 10 agents are described verbatim there. Treat that file as primary source of truth — registry descriptions in `lib/agents/*.js` must match.
+3. **Pilot agent set = the official 10** from the concept note. Sourcer, Media Verifier, Compliance dropped. Funder renamed Fundraiser.
+4. **Governance / compliance layer dropped** (no jurisdiction packs / POPIA enforcement / audit-export). Internal `audit_log` table stays for plain debugging. The new "**learning layer**" — curated AI ethics/law/security update FEED + cross-cohort meta-analytics + workflow auto-promotion — is a different mechanism and IS in pilot.
+5. **User mode is a chat surface.** Builder mode (desktop web app, drag-and-drop canvas) composes workflows. User mode (chat surface) consumes them, filtered by per-workflow team-member assignment. Eventually accessible via WhatsApp (post-pilot).
+6. **Builder mode is drag-and-drop on a single canvas page** (React Flow). Workflows list rail on the left, agent palette below it, canvas centre, per-node config + workflow settings + Members on the right. Per-workflow team-member assignment in `workflow_assignments` (migration 007).
+7. **Verifier ↔ Distributor coupling.** Verifier checks both journalist-sourced and community-submitted material via Distributor's inbound triage queue. Build sequencing accordingly: Operations before Distributor, credibility map enhancement after the inbound flow exists.
+8. **Open-source-first rule locked.** Every non-LLM module (embeddings, vision, OCR, translation, speech, …) **must be fully free at any usage volume** — i.e. OSS we self-host (Hugging Face is the default place to look). Free-tier hosted APIs are NOT acceptable. Anthropic Claude is the only allowed paid dependency.
+9. **Cohere replaced.** Embeddings run locally via `@huggingface/transformers` against `Xenova/bge-m3`. Same 1024-dim output, no schema migration. See [`lib/storage/embed.js`](../lib/storage/embed.js).
+10. **Repo on GitHub** at `https://github.com/pauldevelopai/anchor.git`. **Repo path** is `/Users/paulmcnally/Developai Dropbox/Paul McNally/DROPBOX/ONMAC/PYTHON 2025/anchor`.
 
 ---
 
@@ -34,55 +38,67 @@ Cross-newsroom **shared workflow library** is the network effect. Per-newsroom i
 
 ---
 
-## 2. The 10 pilot agents
+## 2. The 10 agents
 
-This list is the official one from Paul (2026-05-05). Three agents previously planned (Sourcer, Media Verifier, Compliance) are **out** of pilot. "Funder" was renamed **Fundraiser**.
+**Canonical scope: [`docs/AGENTS.md`](AGENTS.md)** — verbatim from Paul's final spec. Read it first; this section just summarises build state and OSS-dependency notes. If anything here disagrees with AGENTS.md, AGENTS.md wins.
 
-**Built and verified end-to-end (Steps 4b/4c/4d):**
+**Built (basic shells — descriptions match AGENTS.md as of 2026-05-05 PM):**
 
-| # | Agent | What it does |
-|---|-------|-------------|
-| 1 | **Verifier** | Checks claims against sources and the newsroom's archive. Returns confidence rating, evidence, citations, and gaps. Multi-source consensus, never single-source. **Pending enhancement: Africa-grounded source credibility map covering SA + Zimbabwe + Zambia + Kenya** (curated outlets, official statistics bodies, recognised credible sources, known disinformation channels per country). "Never Accuse" constraint honored. |
-| 2 | **Archivist** | Semantic search over the newsroom's own archive. Answers "have we written about this before, and what did we say." Per-newsroom and private. Now uses BGE-M3 embeddings (local). |
-| 3 | **Drafter** | Produces drafts in the newsroom's house style: social copy, headlines, newsletter blurbs, light translation. Style check before delivery. Always draft-only — the newsroom signs off. |
+| # | Agent | Build status |
+|---|-------|--------------|
+| 1 | **Verifier** | Built. Pending: Distributor-intake-queue integration, Africa-grounded credibility map (SA + ZW + ZM + KE). |
+| 2 | **Archivist** | Built. BGE-M3 + pgvector. |
+| 3 | **Drafter** | Built. House style still surface-level (will deepen as Newsroom Profile lands). |
 
-**Not yet built — required for pilot launch:**
+**To build (all in pilot scope per the final spec):**
 
-| # | Agent | What it does | Likely OSS dependencies to evaluate |
-|---|-------|-------------|--------------------------------------|
-| 4 | **Researcher** | Outward research: public records, court filings, regulatory disclosures, financial documents. | PDF parsing already in repo (`pdf-parse`); OSS named-entity-recognition (spaCy, GLiNER); govt-API helpers. |
-| 5 | **Translator** | Full stories between English and African languages with newsroom-approved terminology. Languages relevant to the 4 markets: isiZulu, isiXhosa, Afrikaans (SA); Shona, Ndebele (ZW); Bemba, Nyanja, Tonga (ZM); Swahili, Kikuyu (KE). | Meta NLLB-200 distilled (600M or 1.3B); LASER for sentence alignment. |
-| 6 | **Producer** | Multi-format production: radio scripts, podcast outlines, video briefs. | Whisper (faster-whisper); TTS via Coqui or Piper; ffmpeg. |
-| 7 | **Distributor** | Posts to social, schedules newsletters, pushes to CMS. Editorially cleared, never autonomous. | Direct API integrations (X, Bluesky, Mastodon, Buttondown). All OSS / free APIs preferred. |
-| 8 | **Fundraiser** | Maps stories to grants, drafts donor reports, surfaces required metrics. | Donor-database scraping; LLM matching. Mostly Claude-driven. |
-| 9 | **Audience** | Reads engagement and search data; flags landed topics, gaps, and bounced stories. | Plausible / Umami self-hosted analytics; Searxng for trend signals. |
-| 10 | **Operations** | Internal newsroom workflows: editorial calendar, deadlines, freelancer coordination. | Mostly DB + LLM; reuse Drafter scaffolding. |
+| # | Agent | OSS dependencies to lean on (Hugging Face first) |
+|---|-------|---------------------------------------------------|
+| 4 | **Researcher** | `pdf-parse` (already in repo), GLiNER for entity extraction. |
+| 5 | **Translator** | Helsinki-NLP `opus-mt-*` (Marian), Meta NLLB-200 distilled, Masakhane (`afri-mt5`, `afroLM`), Lelapa AI's open models — via `@huggingface/transformers` in-process. **Multi-model routing layer is core, not optional.** |
+| 6 | **Producer** | `faster-whisper` (STT), Piper / Coqui TTS, `ffmpeg`. Stock footage source TBD — Pexels/Pixabay are free-tier hosted APIs (NOT OSS-rule-compliant); Wikimedia Commons or per-newsroom uploaded libraries are likely. |
+| 7 | **Distributor** | Direct API clients for social/newsletter/CMS. WhatsApp piece lifts from `surepath/whatsapp.js` post-pilot. |
+| 8 | **Fundraiser** | Mostly Claude-driven over a `funders` table + `newsroom_profiles`. |
+| 9 | **Audience** | Plausible / Umami connectors + GA export parser; persona generation via Claude with seeded defaults. |
+| 10 | **Operations** | DB + Claude. Adds `contributors` table (vetting/attribution/payment/moderation). |
 
-**Sequencing rule (decided 2026-05-05):** Build Step 5 (Builder + User UIs) as a **thin agent-registry-driven scaffold first** so each new agent (4–10) lights up in the UI as it ships. **Do NOT build all 7 agents before touching the UI** — that's a long invisible stretch. Each new agent commit should be visibly testable in the UI before moving on.
+**Plus the learning layer** (Slice 16): AI ethics/data law/security update feed + cross-cohort meta-analytics + workflow auto-promotion. Curated, not enforcement.
+
+**Plus the newsroom profile** (Slice 7): first-class object holding strengths, prior coverage, audience data, impact stories. Read by Fundraiser, Audience, Drafter (style), Producer.
+
+**Sequencing rule:** Builder + User UI scaffold ships first (done in Slice 4 / 4b) so each new agent lights up in the UI as it ships. New agents = registry entry + module + smoke-test through Builder UI before moving on.
 
 ---
 
-## 3. Build state (commits in this repo)
+## 3. Build state (commits)
+
+Latest first; older commits in `git log`:
 
 ```
-fbc8eca Replace Cohere embeddings with local BGE-M3 (Transformers.js)   [today]
+ddf62b2 Step 5 Slice 4b: inline Builder workspace + team-member assignments
+1b771d3 Step 5 Slice 4: Builder drag-and-drop UI (React Flow)
+ff788f1 Step 5 Slice 3: workflow runner + POST /api/workflows/:id/run
+d145baf Step 5 Slice 2: workflows table + CRUD
+60b9aa5 Step 5 Slice 1: agent registry + GET /api/agents
+fbc8eca Replace Cohere embeddings with local BGE-M3 (Transformers.js)
 9cd82a3 Step 4c and 4d: Archivist and Drafter agents
-e22ed4f Add HANDOFF.md for next agent (Antigravity / Cursor / etc.)
-78e2798 Fix TS: inline cost shape in JSDoc @returns
 d80b08c Step 4 Pass B: Verifier agent
 7977582 Step 4 Pass A: Claude wrapper + cost logging + JSON parser + smoke endpoint
 21e5d70 Step 3b: auth layer (login, logout, me, seed)
 fdcc608 Step 3a: scaffold Next.js + Postgres backbone
-6e3b6bc Step 1: populate REUSE.md from Surepath + Holly walkthrough
-7725ddf Step 0: scaffold Anchor project
 ```
 
-**Verified end-to-end on 2026-05-04:**
-- Login + cookie session + `/api/auth/me` ✓
-- `POST /api/agents/smoke-test` returns `ANCHOR_SMOKE_OK` ($0.002 / call on Opus 4.7) ✓
-- `POST /api/agents/verifier` returns calibrated, journalism-grade fact-check on a real article. ($0.17 / article on Opus 4.7, ~29 s) ✓
+**Currently working end-to-end (verified 2026-05-05 PM):**
+- Login + session at `/login` + `/api/auth/{login,logout,me}` ✓
+- Agent registry at `GET /api/agents` returning all 3 ✓
+- Workflow CRUD at `/api/workflows/*` (create, list, fetch, update, delete) ✓
+- Workflow runner at `POST /api/workflows/:id/run` (unit-tested; live HTTP not exercised — first run will pay BGE-M3 download cost) ✓
+- Builder UI at `/builder` — drag-and-drop canvas with workflows list + agent palette + per-node config + workflow Members assignment ✓
+- Per-workflow team-member assignment routes ✓
 
-**Verified 2026-05-05:** BGE-M3 embedding pipeline produces correct 1024-dim vectors for batch + single inputs.
+**Pre-existing live verification (still holds):**
+- `POST /api/agents/verifier` returns journalism-grade fact-check (~$0.17 / 29 s on Opus 4.7).
+- BGE-M3 embedding pipeline returns correct 1024-dim vectors.
 
 ---
 
@@ -208,7 +224,8 @@ Don't re-litigate these unless Paul re-opens them:
 |----------|--------|-----------|
 | Frontend | Next.js 15 App Router (TS in `app/`) | Confirmed Q3 — full-stack React, App Router DX |
 | Auth | Roll-our-own JWT + bcryptjs (httpOnly cookie) | Confirmed Q4 — lifted from Holly |
-| Database | Local Postgres for dev; **local-only for the entire pilot** (Lightsail post-pilot) | Confirmed 2026-05-05 |
+| Database | Local Postgres for dev. Lightsail deploy is **post-pilot**. | Confirmed 2026-05-05 |
+| **NODE_ENV gotcha** | Paul's shell exports `NODE_ENV=production`. Always `unset NODE_ENV` before `npm install` (else devDependencies — incl. typescript — get skipped) and `npm run dev`. Same class as `unset ANTHROPIC_API_KEY`. | Burned 2026-05-05 PM |
 | DB schema | Raw SQL migrations, no ORM | Confirmed — lifted from Holly |
 | Multi-tenancy | Explicit `newsroom_id` FK on every per-newsroom row | Confirmed — Holly's `sector_ids[]` rejected |
 | Module system | CommonJS at root, TS in `app/` (ESM via Next bundler); ESM-only deps via dynamic `import()` | Confirmed |
@@ -216,18 +233,22 @@ Don't re-litigate these unless Paul re-opens them:
 | Embedding model (Archivist) | **`Xenova/bge-m3` (BAAI/bge-m3 ONNX) via `@huggingface/transformers`, in-process** | OSS, fully free, 1024-dim. **Replaces Cohere as of 2026-05-05.** |
 | Paid LLM | Anthropic Claude (Opus 4.7 default) | The only paid dep. All other agents must be OSS. |
 | Upload formats v1 (Archivist) | PDF, DOCX, plaintext, Markdown | URL fetch deferred to v1.5 |
-| Storage (Archivist uploads) | **Local filesystem mock for the entire pilot** (S3 + Drive mirror are post-pilot infra) | Confirmed 2026-05-05 |
-| WhatsApp delivery | **Planned, post-pilot.** Part of official product story; build after pilot signoff. | Confirmed 2026-05-05 |
-| Pilot deployment | **Local only on Paul's Mac** | Lightsail is post-pilot |
-| Governance / Compliance layer | **DROPPED from Anchor.** No Compliance agent, no jurisdiction packs, no audit-export. Internal `audit_log` table stays for plain debugging only. | Confirmed 2026-05-05 — moved to "a different system" outside Anchor |
-| Workflow library v1 | Flat shared list with attribution; no versioning/moderation | Confirmed |
-| User mode UX | **Chat surface.** Journalists type what they need; Anchor routes to the right workflow. No agent/prompt visibility for the user. Builder did the heavy lifting. | Per official summary 2026-05-05 |
-| Bootstrap admin user | Seed creates `admin@anchor.local` / `changeme123`; real users via admin invite later | Register endpoint deferred to Step 5 |
-| Verifier philosophy | "Never Accuse" — neutral language, advisory verdicts, all evidence flagged "to be independently confirmed" | Hard constraint per briefing |
-| Verifier source-credibility map | Curate for **SA + Zimbabwe + Zambia + Kenya** before pilot. Outlets, official agencies, recognised credible vs. known-problem sources per country. | Confirmed 2026-05-05 |
-| Pilot agent set | **10 agents** — Verifier, Archivist, Drafter (built); Researcher, Translator, Producer, Distributor, Fundraiser, Audience, Operations (to build) | Confirmed 2026-05-05 (changed from 13 earlier same day) |
-| Primary markets | South Africa, Zimbabwe, Zambia, Kenya. Pilot newsrooms remain 5 ZimZam (ZW + ZM); SA + KE in next cohort. | Confirmed 2026-05-05 |
-| Build order for remaining agents | **Step 5 UI scaffold first**, then add agents 4–10 one at a time, each visibly testable in the UI before moving on | Confirmed 2026-05-05 |
+| Storage (Archivist uploads) | Local filesystem mock for now. Real S3 + Drive mirror lands with the post-pilot deploy work. | Confirmed 2026-05-05 |
+| WhatsApp delivery | **Post-pilot.** Lifts from `surepath/whatsapp.js` after pilot signoff. Distributor's WhatsApp inbound + outbound + correction-loop pieces sequence with this. | Confirmed 2026-05-05 PM |
+| Lightsail deployment | **Post-pilot.** Sibling to surepath-prod. | Confirmed 2026-05-05 PM |
+| Pilot scope (everything else) | **Full PDF concept note (final 2026-05-05 PM spec).** Producer's full multimedia pipeline, Translator's multi-model routing + glossary + edit-feedback, Distributor's two-way intake + triage queue (web/non-WA channels), Operations whole-org + contributor mgmt, Audience clones with default low-data/vernacular/feature-phone personas, the learning layer, the newsroom profile object — ALL pilot. | Confirmed 2026-05-05 PM |
+| Governance / Compliance layer | **DROPPED.** No jurisdiction packs / POPIA enforcement / audit-export. The new "**learning layer**" is a curated AI-ethics/law update FEED (different mechanism, IS in pilot). Internal `audit_log` stays for debugging. | Confirmed 2026-05-05 |
+| Workflow library v1 | Flat shared list with attribution; no versioning/moderation. Learning layer's auto-promotion of "successful configs as deployable assets" comes from cross-cohort meta-analytics, not editorial moderation. | Confirmed 2026-05-05 |
+| User mode UX | **Chat surface.** Journalists type what they need; Anchor routes to a workflow they're assigned to. Builder did the heavy lifting. WhatsApp surface lands post-pilot. | Per final spec 2026-05-05 PM |
+| Per-workflow team-member assignment | `workflow_assignments` table (migration 007). User mode chat filters by assignments — only show workflows the user is on. | Confirmed 2026-05-05 PM |
+| Per-newsroom credentials (Distributor) | Encrypted at rest with a key from `CREDENTIALS_KEY`. Decrypted only at posting time. Highest-blast-radius surface — security review before pilot launch. | Confirmed 2026-05-05 |
+| Verifier philosophy | "Never Accuse" — neutral, advisory, all evidence "to be independently confirmed". | Hard constraint per briefing |
+| Verifier source-credibility map | Curated for **SA + Zimbabwe + Zambia + Kenya**. Outlets, official agencies, recognised credible vs. known-problem sources per country. | Confirmed 2026-05-05 |
+| Translator languages | **SA-focused** per final spec: isiZulu, isiXhosa, Sesotho, Setswana, Siswati, IsiNdebele, Sepedi, Afrikaans. NOT the same list as Verifier's market list (which spans SA + ZW + ZM + KE). | Confirmed 2026-05-05 PM |
+| Translator routing | **Multi-model per language pair** (NLLB-200, Helsinki opus-mt, Masakhane afri-mt5, Lelapa, etc.) — not a single-model wrapper. | Confirmed 2026-05-05 PM |
+| Pilot agent set | **The 10 in `docs/AGENTS.md`** — verbatim from Paul's final spec. | Confirmed 2026-05-05 PM |
+| Primary markets | SA, Zimbabwe, Zambia, Kenya. Pilot newsrooms remain 5 ZimZam (ZW + ZM); SA + KE in next cohort. | Confirmed 2026-05-05 |
+| Build order | UI scaffold (done) → agents in dependency order. Operations BEFORE Distributor (Distributor routes contributors to Operations). Newsroom Profile early (Slice 7 — many agents read it). | Confirmed 2026-05-05 PM |
 
 ---
 
@@ -249,7 +270,7 @@ Sync model: read on demand (not nightly cache).
 
 **Canonical knowledge base:** `08 - Knowledge Library` (`1nuVY8OIpZfctRw-eGJ3uj8FCitZBBlGE`) under `My Drive/Develop AI/`.
 
-11 topic subfolders (created by Paul). **Anchor no longer ingests anything from this library** — the governance/methodology RAG was dropped on 2026-05-05 along with the Compliance agent. Folder kept here as reference for the broader Develop AI ecosystem only.
+11 topic subfolders (created by Paul). **Anchor does not ingest from this library yet.** The earlier governance/methodology RAG was dropped along with the Compliance agent. The new **learning layer (Slice 16)** may pull from a curated subset — review when we get there; do NOT pre-ingest now.
 
 **Newsroom uploads (Step 4c Archivist):** **For the pilot, stays local-disk.** S3 + per-newsroom Drive folder mirror are post-pilot infra (currently mocked).
 
@@ -271,84 +292,63 @@ There's an orphan `08 - GROUNDED Knowledge Base/` folder (id `1jq2VORItU0Kv9UI6i
 
 ---
 
-## 9. Build phases — what's left for pilot
+## 9. Build plan — slices
 
-Pilot launch requires: **all 10 agents working + Builder UI + User chat UI + workflow library**, all running locally on Paul's Mac. Governance and WhatsApp are explicitly out of pilot scope.
+Pilot ships **the full PDF concept note** (see [`AGENTS.md`](AGENTS.md)). Only WhatsApp and Lightsail are post-pilot. Each slice ends in a commit Paul reviews before moving on.
 
-### Step 5 — Builder + User mode UIs (NEXT — start here)
+### Step 5 — Builder + User UI scaffold
 
-Two distinct surfaces:
-- **Builder:** desktop web app. Workflow composition — pick agents, set prompts, attach knowledge sources, name the workflow ("slug"). Rich UI but functional > polished for MVP.
-- **User:** **chat surface.** Journalists type what they need; Anchor routes the message to the right workflow built by their newsroom's Builder. They never see agents or prompts. Mobile-friendly (PWA later; chat-first now).
+| Slice | Description | Status |
+|-------|-------------|--------|
+| 1 | Agent registry + `GET /api/agents` | ✓ done (`60b9aa5`) |
+| 2 | Workflows table + CRUD | ✓ done (`d145baf`) |
+| 3 | Workflow runner + `POST /api/workflows/:id/run` | ✓ done (`ff788f1`) |
+| 4 | Builder drag-and-drop UI (React Flow) | ✓ done (`1b771d3`) |
+| 4b | Inline workspace + per-workflow team-member assignment | ✓ done (`ddf62b2`) |
+| 4c | Alignment to final agent spec — `docs/AGENTS.md`, registry descriptions, this rewrite, scope memories | in progress |
+| 5 | User chat surface (filters by user's workflow assignments; keyword-first + LLM-fallback routing) | next |
+| 6 | Admin invite endpoint + UI (Members panel needs >1 user to be useful) | |
 
-**Hard requirement: agent-registry pattern.** Don't hardcode the 3 current agents. Define an agent registry (e.g. `lib/agents/registry.js`) that each agent module registers into, with metadata: name, description, input schema, output schema, route. The Builder UI iterates this registry. Adding agents 4–10 should be a registry-entry plus the agent module — no UI rewrites.
+### Step 6 — Newsroom profile + agent build-out
 
-**Routing in User mode** is a Step-5 design decision. Two viable options:
-- (a) Each workflow has a "trigger phrase" or keyword the Builder sets; the chat parses for that.
-- (b) A small Claude call routes the message to the best-fit workflow. More flexible, more cost.
-Recommend (a) for v1 with (b) as a fallback when no keyword matches.
+Order set by dependencies:
 
-Also add the deferred **`register` endpoint** here — admin-driven invite flow. Self-registration was deferred from Step 3b on purpose.
+| Slice | Description |
+|-------|-------------|
+| 7 | **Newsroom profile** — schema + CRUD. Read by Fundraiser, Audience, Drafter (style), Producer. |
+| 8 | **Researcher** — `pdf-parse`, GLiNER for entity extraction, public-records orchestration. |
+| 9 | **Translator** — sub-slices: 9a glossary + Helsinki-NLP `opus-mt-*` baseline; 9b multi-model routing layer (NLLB / opus-mt / Masakhane / Lelapa); 9c phrase-level confidence; 9d edit-feedback loop (glossary auto-update + routing reweighting). SA-focused languages. |
+| 10 | **Operations** — calendar/deadlines/freelancers + sales/logistics/finance + community contributor management (vetting, attribution, payment, moderation). Must ship before Distributor. |
+| 11 | **Distributor** — sub-slices: 11a inbound triage queue + web-form intake; 11b outbound creds (encrypted) + social/CMS posting; 11c routing to Verifier + Operations; 11d correction loop. WhatsApp inbound + outbound + WA-correction-loop pieces sequence with WA itself (post-pilot). |
+| 12 | **Audience** — analytics ingest (Plausible/Umami/GA/CSV) + clones from data + DEFAULT low-data/vernacular/feature-phone personas seeded. |
+| 13 | **Fundraiser** — funder library + per-newsroom profile composition + cohort joint-application matching. |
+| 14 | **Producer** — sub-slices: 14a text outputs (radio scripts, podcast outlines, video briefs); 14b audio assembly (Whisper + Piper + sound design); 14c vertical video assembly (ffmpeg + footage retrieval + auto-captions); 14d audiograms. |
+| 15 | **Verifier credibility map** — structured JSON/DB table covering SA + ZW + ZM + KE outlets, official agencies, known-disinformation sources. Verifier loads at run time. |
+| 16 | **Learning layer** — AI ethics/data law/security update feed + cross-cohort meta-analytics + auto-promotion of successful workflows as deployable assets. |
 
-Both UIs are server-rendered Next.js App Router pages. Use `getCurrentSession()` from `app/lib/session.ts` everywhere.
+For each new agent: investigate OSS deps on Hugging Face / GitHub first (default home for non-LLM dependencies); log the pick in REUSE.md; register in the agent registry; smoke-test through Builder UI before moving on.
 
-### Step 5.5 onwards — fill in agents 4–10
+### Post-pilot
 
-Recommended order (rough heuristic: easiest-to-implement and most-leveraged first):
-1. **Researcher** — Claude-driven web/PDF research orchestration; leans on existing Drafter scaffolding.
-2. **Translator** — local NLLB-200 distilled via Transformers.js or Python sidecar; high newsroom value. Cover SA, ZW, ZM, KE languages from start.
-3. **Operations** — DB + Claude; mostly UI plumbing.
-4. **Fundraiser** — Claude-heavy, lightweight.
-5. **Audience** — depends on whether self-hosted analytics is in scope for pilot.
-6. **Distributor** — social/CMS APIs; needs per-newsroom credentials. May need to defer per-channel.
-7. **Producer** — Whisper for STT, Coqui/Piper for TTS. Bigger lift; build last.
+**Do not start before pilot signoff.**
+- **Lightsail deploy** — sibling to `surepath-prod`. Deploy script lifts from `surepath/deploy.sh`. Confirm BGE-M3 + Whisper + NLLB model-cache strategy.
+- **WhatsApp** — lift `surepath/whatsapp.js`. Adapt conversation state to User-mode chat. Hooks into Distributor's two-way pieces (inbound, outbound broadcasts, correction loop).
+- **Real S3 + Drive mirror** — replace local-disk uploads.
 
-For each new agent: investigate OSS dependencies on Hugging Face / GitHub before writing; log the pick in REUSE.md; write the agent module + a route + register in the agent registry; smoke-test through the Builder UI.
+### Removed from plan
 
-### Step 5.x — Verifier source-credibility map enhancement
-
-Curate a credibility map covering **South Africa, Zimbabwe, Zambia, Kenya**:
-- Outlets (e.g. SA: News24, Daily Maverick, M&G; ZW: NewsDay, ZBC, ZimLive; ZM: News Diggers, Lusaka Times, ZNBC; KE: Nation, Standard, Citizen).
-- Official agencies (StatsSA, ZimStats, ZamStats, KNBS; reserve banks; election commissions; courts).
-- Recognised credible vs. known-disinformation channels.
-Store as a structured JSON / DB table the Verifier loads at run-time. Per-country prior on source weighting.
-
-### Step 6 — Workflow library (per-newsroom + cross-newsroom shared)
-
-- `workflows` table — per-newsroom owned but with `is_shared boolean` flag for cross-newsroom visibility
-- Attribution shown on shared workflows (built-by name, newsroom)
-- v1 = flat shared list; no versioning, no moderation. `audit_log` gives "who did what when" backstop.
-
-### Step 7 — POST-PILOT: Lightsail deploy + WhatsApp delivery
-
-**Do not start either before pilot is signed off.**
-
-- Lightsail: new instance (sibling to surepath-prod, NOT same instance). Deploy script: lift from `surepath/deploy.sh` shape. Need to confirm BGE-M3 model cache strategy (bake into image vs. download on first run).
-- WhatsApp: lift Surepath's `whatsapp.js` (Twilio webhook + signature verification + conversation state machine). Adapt the conversation state to workflow-output delivery — User mode chat surface but over WhatsApp.
-- Replace local-disk storage with real S3 + Drive mirror.
-
-### Removed from build plan
-
-- ~~Step 7 Governance layer~~ — dropped 2026-05-05; moved to a different system outside Anchor.
-- ~~Compliance agent~~ — dropped with governance.
-- ~~Sourcer agent~~ — dropped 2026-05-05 (not in official 10).
-- ~~Media Verifier agent~~ — dropped 2026-05-05 (not in official 10).
+- ~~Compliance agent~~, ~~Sourcer~~, ~~Media Verifier~~ — not in the official 10.
+- ~~Governance / jurisdiction packs / POPIA enforcement~~ — moved to a different system. The new "learning layer" (Slice 16) is a different mechanism (curated FEED, not enforcement).
 
 ---
 
-## 10. Open decisions for the next agent to ask Paul
+## 10. Open decisions
 
-Resolved in the 2026-05-05 session: agent count (10), governance (dropped), WhatsApp (planned post-pilot), User-mode shape (chat surface), Media Verifier (out of pilot, no longer a question).
+Most pre-existing open questions are resolved. Remaining:
 
-Still open:
-
-1. **Local-only deployment shape for pilot.** Does "local-only" mean (a) just Paul's Mac during dev/demo (newsrooms send work to Paul to run), or (b) each of the 5 pilot newsrooms runs Anchor on their own laptop / local machine?
-   - (a) → just keep `npm run dev`; trivial.
-   - (b) → need a packaged installer (Electron? Docker desktop? Tauri? `pkg`?), a local-Postgres bootstrap script, model-cache pre-bundling, a no-internet fallback story, etc.
-2. **User-mode chat routing.** Per Step 5 design: trigger-phrase routing (Builder sets a keyword per workflow), or LLM routing (small Claude call picks the workflow), or both? See §9 Step 5 for a recommendation.
-3. **Distributor agent scope.** Is per-newsroom social-media credential storage in pilot scope, or is "Distributor draft-only, copy/paste to social" enough? Affects Step 5 UI for credentials and a security review.
-4. **Producer agent scope.** Whisper STT + Piper/Coqui TTS run locally but are heavy (GBs of model weights, slow on CPU). Acceptable for the pilot Mac? Or trim Producer's scope to text-only outputs (radio scripts, podcast outlines, video briefs) and skip the audio-generation parts at pilot?
-5. **Audience agent dependencies.** Self-hosted analytics (Plausible/Umami) takes infra. Are pilot newsrooms instrumented with anything Anchor can read? If not, Audience may be a Step-9 (post-pilot) agent in practice.
+1. **User-mode chat routing.** Going with **(a) keyword-first + (b) LLM-fallback** unless Paul redirects. Workflow trigger phrases are matched first; if none match, a small Claude call picks the best-fit workflow from the user's assigned set.
+2. **Producer stock-footage source.** Pexels/Pixabay are free-tier hosted APIs (NOT OSS-rule-compliant). Likely options: Wikimedia Commons (open license), per-newsroom uploaded asset library, or a curated open-asset bundle baked into the deploy. Decide at Slice 14.
+3. **Audience analytics connectors.** Plausible / Umami / GA export / raw CSV. Default-persona seed handles newsrooms with no analytics; analytics ingest is opportunistic. Confirm when we get there whether any pilot newsroom has real analytics to wire up.
 
 ---
 
@@ -371,20 +371,23 @@ For each lift, **log it in [`../REUSE.md`](../REUSE.md)** with date, source path
 
 ## 12. Memory / context outside this repo
 
-The previous Claude Code (CLI) session kept user-level memory at `~/.claude/projects/-Users-paulmcnally-Developai-Dropbox-Paul-McNally-DROPBOX-ONMAC-PYTHON-2025-anchor/memory/`. The new Claude inside VS Code may or may not see those files depending on its memory configuration. Key facts already saved that the next agent should know whether or not memory loads:
+User-level memory lives at `~/.claude/projects/-Users-paulmcnally-Developai-Dropbox-Paul-McNally-DROPBOX-ONMAC-PYTHON-2025-anchor/memory/`. Key facts saved there:
 
-- **Anchor's only paid dep is Anthropic.** Everything else must be OSS, fully free, no free-tier limits.
-- **The pilot agent set is 10** (Verifier, Archivist, Drafter built; Researcher, Translator, Producer, Distributor, Fundraiser, Audience, Operations to build). Sourcer, Media Verifier, Compliance dropped.
-- **Governance layer dropped.** Belongs to a different system outside Anchor.
-- **User mode is a chat surface.** Builder mode is desktop web app. WhatsApp delivery planned, post-pilot.
+- **Anchor's only paid dep is Anthropic.** Everything else must be OSS, fully free, no free-tier limits. Hugging Face is the default place to look first.
+- **Pilot scope = the full PDF concept note (final 2026-05-05 PM spec)** — see [`docs/AGENTS.md`](AGENTS.md) for the canonical agent definitions. ONLY WhatsApp + Lightsail are post-pilot.
+- **Translator scope** — multi-model routing per language pair + per-newsroom glossary + phrase confidence + edit-feedback loop. SA-focused languages.
+- **Distributor scope** — two-way (inbound triage + outbound) with correction loop. Routes inbound to Verifier (fact-check) + Operations (contributor mgmt).
+- **Operations scope** — whole-org (sales/logistics/finance) + community contributor management. Build BEFORE Distributor.
+- **Audience scope** — analytics conversion + clones + DEFAULT low-data/vernacular/feature-phone personas seeded.
+- **Builder mode = drag-and-drop canvas** at /builder. Per-workflow team-member assignment via `workflow_assignments`.
+- **User mode = chat surface**, filtered by per-workflow assignment. WhatsApp surface lands post-pilot.
 - **Primary markets:** SA, Zimbabwe, Zambia, Kenya. Pilot newsrooms remain 5 ZimZam.
-- **Build agents incrementally behind the UI**, not in a long invisible batch.
-- **Park side-tasks.** Paul has been burned by mid-build pivots into housekeeping.
+- **Build agents incrementally behind the UI**, not in a long invisible batch. Step → confirm → next step. Park side-tasks.
 - **Surepath is live — never modify it.** Read-only reference.
-- **Shell exports `ANTHROPIC_API_KEY=""`** — always `unset` it before `npm run dev`.
+- **Shell gotchas:** `unset ANTHROPIC_API_KEY` before `npm run dev`; `unset NODE_ENV` before `npm install` (else devDependencies get skipped).
 
 ---
 
-## 13. Bootstrap prompt for the next agent (paste into VS Code Claude)
+## 13. Bootstrap prompt for the next agent
 
-> Read `docs/HANDOFF.md`, `docs/BRIEFING.md`, and `REUSE.md` in full before doing anything. Anchor is shared AI infrastructure for African newsrooms. Pilot scope is **10 agents + Builder web UI + User chat surface + cross-newsroom workflow library**, all running **locally** on Paul's Mac. Anthropic Claude is the only paid dependency; everything else must be OSS and fully free. WhatsApp delivery and Lightsail deploy are planned but post-pilot. The execution layer has 3 of 10 agents shipped (Verifier, Archivist, Drafter). Next phase is Step 5 (Builder + User mode UIs) built as an **agent-registry-driven scaffold** so agents 4–10 can plug in incrementally. Before writing any code, please ask me the five open questions in §10 of HANDOFF.md and propose a Step 5 implementation plan for my review.
+> Read `docs/AGENTS.md` (canonical agent definitions), `docs/HANDOFF.md` (this file), and `REUSE.md` (lift inventory) in full before doing anything. Anchor is shared AI infrastructure for African newsrooms. **Pilot scope = the full PDF concept note as it stands in `docs/AGENTS.md` — only WhatsApp delivery and Lightsail deploy are post-pilot. Everything else (Producer's full multimedia, Translator's multi-model routing + glossary + edit-feedback, two-way Distributor, Operations including contributor mgmt, Audience clones with default low-data/vernacular/feature-phone personas, the learning layer, the newsroom profile object) is in pilot.** Anthropic Claude is the only paid dependency; everything else must be OSS, fully free at any volume, self-hosted (Hugging Face is the default place to look). 3 of 10 agents are shipped as basic shells (Verifier, Archivist, Drafter); Builder UI scaffold is shipped with drag-and-drop, workflow CRUD, runner, and per-workflow team-member assignment. Next phase is Slice 5 (User chat surface filtered by assignments). Before writing code, confirm the open questions in §10 and the slice plan in §9. Step → confirm → next step; park side-tasks.
