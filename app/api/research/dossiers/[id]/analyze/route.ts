@@ -47,6 +47,7 @@ type AnalyzeBody = {
   generate_questions?: boolean;
   suggest_records?: boolean;
   max_entities?: number;
+  model?: string;
   reanalyze?: boolean;
 };
 
@@ -119,6 +120,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         generateQuestions: body.generate_questions !== false,
         suggestRecords: body.suggest_records !== false,
         maxEntities: body.max_entities,
+        model: body.model,
         context: {
           newsroomId: session.newsroomId,
           userId: session.userId,

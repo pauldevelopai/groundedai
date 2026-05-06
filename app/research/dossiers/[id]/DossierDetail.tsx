@@ -110,6 +110,7 @@ export default function DossierDetail({
   const [depth, setDepth] = useState<'quick' | 'thorough' | 'forensic'>('thorough');
   const [jurisdiction, setJurisdiction] = useState<'none' | 'SA' | 'ZW' | 'ZM' | 'KE'>('none');
   const [coverage, setCoverage] = useState<'basic' | 'full' | 'financial'>('full');
+  const [model, setModel] = useState<string>('claude-haiku-4-5-20251001');
   const [reanalyze, setReanalyze] = useState(false);
 
   async function refresh() {
@@ -158,6 +159,7 @@ export default function DossierDetail({
           depth,
           jurisdiction,
           coverage,
+          model,
           reanalyze,
         }),
       });
@@ -317,6 +319,14 @@ export default function DossierDetail({
                         <option value="basic">Basic — people, orgs, places, dates</option>
                         <option value="full">Full — basic + amounts + relationships (default)</option>
                         <option value="financial">Financial — money flows only</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, color: '#5a3a99', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      Model
+                      <select value={model} onChange={(e) => setModel(e.target.value)} style={{ fontSize: 12, padding: 4, border: '1px solid #d6c8f5', borderRadius: 3, background: 'white', flex: 1 }}>
+                        <option value="claude-haiku-4-5-20251001">Haiku 4.5 — fast & cheap (~$0.01/doc)</option>
+                        <option value="claude-sonnet-4-6">Sonnet 4.6 — balanced (~$0.05/doc)</option>
+                        <option value="claude-opus-4-7">Opus 4.7 — slow & deep (~$0.27/doc)</option>
                       </select>
                     </label>
                     <label style={{ fontSize: 12, color: '#5a3a99', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
