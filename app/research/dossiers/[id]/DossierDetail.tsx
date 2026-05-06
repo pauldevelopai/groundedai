@@ -50,12 +50,17 @@ type Relationship = {
 };
 type Finding = {
   id: string;
-  kind: 'claim' | 'question' | 'record_to_pull' | 'gap' | 'summary';
+  kind: 'claim' | 'question' | 'record_to_pull' | 'gap' | 'summary' | 'archive_match';
   body: string;
   rationale: string | null;
   source_doc_id: string | null;
   confidence: string | number | null;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, unknown> & {
+    entity_id?: string;
+    entity_name?: string;
+    archive_filename?: string;
+    similarity?: number;
+  };
 };
 
 const ENTITY_KIND_COLORS: Record<string, { bg: string; fg: string }> = {
@@ -73,6 +78,7 @@ const FINDING_LABELS: Record<Finding['kind'], string> = {
   record_to_pull: 'Records to pull',
   gap: 'Gaps to fill',
   summary: 'Summary',
+  archive_match: 'Past coverage',
 };
 
 function fmtBytes(b: number) {
@@ -195,9 +201,20 @@ export default function DossierDetail({
 
   const findingsByKind = new Map<Finding['kind'], Finding[]>();
   for (const f of initialFindings) {
+    if (f.kind === 'archive_match') continue;     // rendered per-entity, not in main findings list
     if (!findingsByKind.has(f.kind)) findingsByKind.set(f.kind, []);
     findingsByKind.get(f.kind)!.push(f);
   }
+  // Group archive matches by entity for inline rendering on each entity card.
+  const archiveMatchesByEntity = new Map<string, Finding[]>();
+  for (const f of initialFindings) {
+    if (f.kind !== 'archive_match') continue;
+    const eid = f.metadata?.entity_id;
+    if (!eid) continue;
+    if (!archiveMatchesByEntity.has(eid)) archiveMatchesByEntity.set(eid, []);
+    archiveMatchesByEntity.get(eid)!.push(f);
+  }
+  const totalArchiveMatches = initialFindings.filter((f) => f.kind === 'archive_match').length;
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
@@ -377,22 +394,23 @@ export default function DossierDetail({
             </div>
 
             <div style={{ background: 'white', border: '1px solid #e5e5e5', borderRadius: 8, padding: 18 }}>
-              <h2 style={{ fontSize: 16, margin: '0 0 10px' }}>Entities ({initialEntities.length})</h2>
+              <h2 style={{ fontSize: 16, margin: '0 0 4px' }}>Entities ({initialEntities.length})</h2>
+              {totalArchiveMatches > 0 && (
+                <p style={{ fontSize: 12, color: '#666', margin: '0 0 10px' }}>
+                  📚 {totalArchiveMatches} archive match{totalArchiveMatches === 1 ? '' : 'es'} across these entities — click any entity with a count to see past coverage.
+                </p>
+              )}
               {initialEntities.length === 0 ? (
                 <p style={{ color: '#888', fontSize: 13, margin: 0 }}>People, organisations, places, dates, and amounts pulled from the documents will list here.</p>
               ) : (
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {initialEntities.map((e) => {
-                    const c = ENTITY_KIND_COLORS[e.kind] || { bg: '#eee', fg: '#555' };
-                    return (
-                      <li key={e.id} style={{ padding: '6px 0', borderTop: '1px solid #f0f0f0', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 11, padding: '1px 8px', background: c.bg, color: c.fg, borderRadius: 10 }}>{e.kind}</span>
-                        <strong>{e.name}</strong>
-                        {e.role && <span style={{ color: '#666', fontSize: 12 }}>· {e.role}</span>}
-                        <span style={{ marginLeft: 'auto', color: '#888', fontSize: 11 }}>{e.mention_count}×</span>
-                      </li>
-                    );
-                  })}
+                  {initialEntities.map((e) => (
+                    <EntityRow
+                      key={e.id}
+                      entity={e}
+                      archiveMatches={archiveMatchesByEntity.get(e.id) || []}
+                    />
+                  ))}
                 </ul>
               )}
             </div>
@@ -416,5 +434,70 @@ export default function DossierDetail({
         </div>
       </div>
     </main>
+  );
+}
+
+function EntityRow({ entity, archiveMatches }: { entity: Entity; archiveMatches: Finding[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const c = ENTITY_KIND_COLORS[entity.kind] || { bg: '#eee', fg: '#555' };
+  const matchCount = archiveMatches.length;
+  const canExpand = matchCount > 0;
+  return (
+    <li style={{ borderTop: '1px solid #f0f0f0', fontSize: 13 }}>
+      <div
+        onClick={() => canExpand && setExpanded((e) => !e)}
+        style={{
+          padding: '8px 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          cursor: canExpand ? 'pointer' : 'default',
+        }}
+      >
+        <span style={{ fontSize: 11, padding: '1px 8px', background: c.bg, color: c.fg, borderRadius: 10 }}>{entity.kind}</span>
+        <strong>{entity.name}</strong>
+        {entity.role && <span style={{ color: '#666', fontSize: 12 }}>· {entity.role}</span>}
+        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {matchCount > 0 && (
+            <span style={{ fontSize: 11, padding: '1px 8px', background: '#e8eef5', color: '#3a4a5d', borderRadius: 10 }}>
+              📚 {matchCount} past mention{matchCount === 1 ? '' : 's'}
+            </span>
+          )}
+          <span style={{ color: '#888', fontSize: 11 }}>{entity.mention_count}×</span>
+          {canExpand && <span style={{ color: '#666', fontSize: 11 }}>{expanded ? '▾' : '▸'}</span>}
+        </span>
+      </div>
+      {expanded && matchCount > 0 && (
+        <div style={{ paddingBottom: 10, paddingLeft: 8 }}>
+          {archiveMatches
+            .slice()
+            .sort((a, b) => Number(b.confidence ?? 0) - Number(a.confidence ?? 0))
+            .map((m) => (
+              <div
+                key={m.id}
+                style={{
+                  margin: '6px 0',
+                  padding: 10,
+                  background: '#f8fafc',
+                  borderLeft: '3px solid #3a4a5d',
+                  borderRadius: 4,
+                }}
+              >
+                <div style={{ fontSize: 11, color: '#3a4a5d', marginBottom: 4 }}>
+                  📄 <strong>{m.metadata.archive_filename || 'Unknown source'}</strong>
+                  {typeof m.metadata.similarity === 'number' && (
+                    <span style={{ marginLeft: 8, color: '#666' }}>
+                      similarity {Math.round(m.metadata.similarity * 100)}%
+                    </span>
+                  )}
+                </div>
+                <p style={{ margin: 0, fontSize: 13, color: '#333', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
+                  {m.body}
+                </p>
+              </div>
+            ))}
+        </div>
+      )}
+    </li>
   );
 }

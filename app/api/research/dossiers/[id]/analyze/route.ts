@@ -33,6 +33,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentSession } from '@/app/lib/session';
 import { pool } from '@/lib/db';
 const { analyzeText } = require('@/lib/agents/researcher');
+const { search: archivistSearch } = require('@/lib/agents/archivist');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -48,6 +49,9 @@ type AnalyzeBody = {
   suggest_records?: boolean;
   max_entities?: number;
   reanalyze?: boolean;
+  archive_cross_reference?: boolean;        // default true
+  archive_top_k_per_entity?: number;        // default 3
+  archive_min_similarity?: number;          // default 0.3
 };
 
 type EntityOut = { kind?: string; name?: string; role?: string; metadata?: Record<string, unknown> };
@@ -253,6 +257,80 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     }
   }
 
+  // ─── Archivist cross-reference ──────────────────────────────────────────
+  // For each significant person + organisation entity in the dossier, run
+  // the newsroom's archive search and persist hits as 'archive_match'
+  // findings keyed back to the entity in metadata. Reanalyze re-creates the
+  // archive matches; otherwise we only run for entities without existing
+  // matches so re-analyze of new docs doesn't re-search every old entity.
+  let archiveMatchesCreated = 0;
+  let archiveMatchErrors = 0;
+  const doCrossRef = body.archive_cross_reference !== false;
+  if (doCrossRef && errors.length < docs.length) {
+    if (reanalyze) {
+      await pool.query(
+        `DELETE FROM research_findings WHERE dossier_id = $1 AND kind = 'archive_match'`,
+        [id]
+      );
+    }
+    const entitiesToCheckRes = await pool.query(
+      `SELECT e.id, e.name, e.kind, e.mention_count
+         FROM research_entities e
+        WHERE e.dossier_id = $1
+          AND e.kind IN ('person', 'organisation')
+          ${reanalyze ? '' : `
+          AND NOT EXISTS (
+            SELECT 1 FROM research_findings f
+             WHERE f.dossier_id = e.dossier_id
+               AND f.kind = 'archive_match'
+               AND f.metadata->>'entity_id' = e.id::text
+          )`}
+        ORDER BY e.mention_count DESC, e.name ASC
+        LIMIT 12`,
+      [id]
+    );
+    const k = Math.max(1, Math.min(10, body.archive_top_k_per_entity ?? 3));
+    const minSim = Math.max(0, Math.min(1, body.archive_min_similarity ?? 0.3));
+
+    for (const ent of entitiesToCheckRes.rows) {
+      try {
+        const matches = await archivistSearch({
+          newsroomId: session.newsroomId,
+          query: ent.name,
+          k,
+        });
+        for (const m of matches as Array<{ text: string; filename: string; similarity: number }>) {
+          if ((m.similarity || 0) < minSim) continue;
+          await pool.query(
+            `INSERT INTO research_findings
+               (dossier_id, newsroom_id, kind, body, rationale, source_doc_id, confidence, metadata)
+             VALUES ($1, $2, 'archive_match', $3, $4, NULL, $5, $6)`,
+            [
+              id,
+              session.newsroomId,
+              m.text,
+              `Mentions "${ent.name}" — past coverage from ${m.filename}.`,
+              Number(m.similarity?.toFixed(3) ?? 0),
+              JSON.stringify({
+                entity_id: ent.id,
+                entity_name: ent.name,
+                entity_kind: ent.kind,
+                archive_filename: m.filename,
+                similarity: m.similarity,
+              }),
+            ]
+          );
+          archiveMatchesCreated++;
+        }
+      } catch (err) {
+        archiveMatchErrors++;
+        // Log but don't fail the whole analyze on archive issues — the
+        // most likely cause is "no archive ingested yet", which is fine.
+        console.error('Archivist cross-reference error for', ent.name, err);
+      }
+    }
+  }
+
   await pool.query(`UPDATE research_dossiers SET updated_at = NOW() WHERE id = $1`, [id]);
   await pool.query(
     `INSERT INTO audit_log (newsroom_id, user_id, event_type, payload)
@@ -267,6 +345,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         entities_updated: entitiesUpdated,
         relationships_created: relationshipsCreated,
         findings_created: findingsCreated,
+        archive_matches_created: archiveMatchesCreated,
         cost_usd: totalCostUsd,
       }),
     ]
@@ -278,6 +357,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     entities_updated: entitiesUpdated,
     relationships_created: relationshipsCreated,
     findings_created: findingsCreated,
+    archive_matches_created: archiveMatchesCreated,
+    archive_match_errors: archiveMatchErrors,
     totalCost: { costUsd: totalCostUsd, inputTokens: totalInputTokens, outputTokens: totalOutputTokens },
     durationMs: Date.now() - startedAt,
     errors,
