@@ -6,6 +6,7 @@
 
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
+import ExternalToolLinks from '@/app/components/ExternalToolLinks';
 
 type ImpactStory = { headline?: string; year?: string | number; outcome?: string; source_url?: string };
 type Award = { name?: string; year?: string | number; body?: string };
@@ -155,6 +156,9 @@ export default function NewsroomProfileForm({
           <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
         )}
         <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
+        <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
+          <ExternalToolLinks size="md" marginLeft={0} />
+        </span>
       </header>
 
       <form onSubmit={onSave} style={{ maxWidth: 880, margin: '0 auto', padding: '24px 20px' }}>

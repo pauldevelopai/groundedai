@@ -9,6 +9,7 @@
 
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
+import ExternalToolLinks from '@/app/components/ExternalToolLinks';
 
 type User = {
   id: string;
@@ -85,6 +86,9 @@ export default function TeamPageClient({
         <span>
           <Link href="/builder" style={{ fontSize: 13, color: '#0066cc' }}>← Back to Builder</Link>
           <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
+          <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
+            <ExternalToolLinks size="md" marginLeft={0} />
+          </span>
         </span>
       </header>
       <p style={{ color: '#666', fontSize: 14, marginTop: 0 }}>{newsroomName}</p>

@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/app/lib/session';
 import { pool } from '@/lib/db';
+import ExternalToolLinks from '@/app/components/ExternalToolLinks';
 
 type RunCard = {
   id: string;
@@ -95,6 +96,9 @@ export default async function RunIndex() {
           <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
         )}
         <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
+        <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
+          <ExternalToolLinks size="md" marginLeft={0} />
+        </span>
       </header>
 
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '24px 20px' }}>

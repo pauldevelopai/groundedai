@@ -49,6 +49,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import WorkflowRunner from './WorkflowRunner';
 import StarterPicker, { type Starter } from './StarterPicker';
+import ExternalToolLinks from '@/app/components/ExternalToolLinks';
 
 export type AgentConfigField =
   | { type: 'number'; default: number; min?: number; max?: number; step?: number; label?: string; description?: string }
@@ -802,6 +803,9 @@ function Inner({
           <Link href="/team" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Team →</Link>
         )}
         <Link href="/guide" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Help →</Link>
+        <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
+          <ExternalToolLinks size="sm" marginLeft={0} />
+        </span>
       </header>
 
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>

@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import ExternalToolLinks from '@/app/components/ExternalToolLinks';
 
 type Format = 'radio_script' | 'podcast_outline' | 'video_brief' | 'audio_assembly' | 'vertical_video' | 'audiogram';
 type Status = 'pending' | 'generated' | 'edited' | 'approved' | 'published' | 'failed';
@@ -107,6 +108,9 @@ export default function ProductionDetail({
           <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
         )}
         <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
+        <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
+          <ExternalToolLinks size="md" marginLeft={0} />
+        </span>
       </header>
 
       <div style={{ maxWidth: 920, margin: '0 auto', padding: '24px 20px' }}>

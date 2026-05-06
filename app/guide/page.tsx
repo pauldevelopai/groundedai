@@ -11,6 +11,8 @@ import Link from 'next/link';
 import { getCurrentSession } from '@/app/lib/session';
 import { list as listAgents } from '@/lib/agents/registry';
 import type { AgentMeta, AgentConfigField } from '@/app/builder/BuilderShell';
+import ExternalToolLinks from '@/app/components/ExternalToolLinks';
+import { EXTERNAL_TOOLS } from '@/lib/external-tools';
 
 type AgentSection = { number: number; name: string; slug: string; canonicalText: string };
 
@@ -79,6 +81,9 @@ export default async function GuidePage() {
         ) : (
           <Link href="/login" style={{ fontSize: 13, color: '#0066cc' }}>Sign in →</Link>
         )}
+        <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
+          <ExternalToolLinks size="md" marginLeft={0} />
+        </span>
       </header>
 
       <div style={{ maxWidth: 880, margin: '0 auto', padding: '32px 24px 80px', lineHeight: 1.55 }}>
@@ -161,6 +166,23 @@ export default async function GuidePage() {
           </ol>
         </Section>
 
+        <Section id="ecosystem" title="The Develop AI ecosystem">
+          <p>
+            Anchor isn't the whole picture. It sits inside Develop AI's wider toolset, and every page links to its sister apps in the top-right of the menu. They\'re separate products with their own logins for now (single sign-on is on the roadmap).
+          </p>
+          {EXTERNAL_TOOLS.map((tool) => (
+            <div key={tool.slug} style={{ background: 'white', border: '1px solid #e5e5e5', borderRadius: 8, padding: 14, marginTop: 12 }}>
+              <h3 style={{ fontSize: 16, margin: '0 0 6px' }}>
+                {tool.icon} {tool.name}{' '}
+                <a href={tool.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#0066cc', fontWeight: 400 }}>
+                  open ↗
+                </a>
+              </h3>
+              <p style={{ margin: 0, fontSize: 14, color: '#444', lineHeight: 1.5 }}>{tool.description}</p>
+            </div>
+          ))}
+        </Section>
+
         <Section id="agents" title="The 10 agents">
           <p>
             Each does one thing well. The power is in the composition — newsrooms combine them into workflows that fit how they actually work.
@@ -185,6 +207,7 @@ function Toc({ sections }: { sections: AgentSection[] }) {
         <li><a href="#building">Building a workflow</a></li>
         <li><a href="#running">Running a workflow as a user</a></li>
         <li><a href="#team">Managing your team</a></li>
+        <li><a href="#ecosystem">The Develop AI ecosystem</a></li>
         <li><a href="#agents">The 10 agents</a>
           <ul style={{ paddingLeft: 18, marginTop: 4 }}>
             {sections.map((s) => (
