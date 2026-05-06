@@ -22,6 +22,16 @@ type GlossaryEntry = {
   updated_at: string;
 };
 type GlossaryHit = { id: string; term: string; translation: string; occurrences: number };
+type Segment = { index: number; source: string; translated: string };
+type Proposal = {
+  id: string;
+  from: string;
+  to: string;
+  occurrences: number;
+  status: 'proposed' | 'accepted' | 'rejected';
+  accepted_source_term?: string;
+  resolved_at?: string;
+};
 type TranslationRow = {
   id: string;
   source_language: string;
@@ -32,6 +42,8 @@ type TranslationRow = {
   status: 'pending' | 'translated' | 'edited' | 'published' | 'failed';
   model_id: string | null;
   glossary_terms_seen: GlossaryHit[];
+  segments: Segment[];
+  proposals: Proposal[];
   duration_ms: number | null;
   error: string | null;
   created_at: string;
@@ -172,7 +184,14 @@ export default function TranslationWorkspace({
             canEdit={canEdit}
             onChange={setGlossary}
           />
-          <TranslationsSection translations={translations} languages={languages} />
+          <TranslationsSection
+            translations={translations}
+            languages={languages}
+            canEdit={canEdit}
+            onUpdate={(updated) =>
+              setTranslations((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+            }
+          />
         </div>
       </div>
     </main>
@@ -331,55 +350,315 @@ function GlossarySection({
   );
 }
 
-function TranslationsSection({ translations, languages }: { translations: TranslationRow[]; languages: Record<string, string> }) {
+function TranslationsSection({
+  translations,
+  languages,
+  canEdit,
+  onUpdate,
+}: {
+  translations: TranslationRow[];
+  languages: Record<string, string>;
+  canEdit: boolean;
+  onUpdate: (t: TranslationRow) => void;
+}) {
   return (
     <section style={{ background: 'white', border: '1px solid #e5e5e5', borderRadius: 8, padding: 18 }}>
       <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>Recent translations ({translations.length})</h2>
       {translations.length === 0 ? (
-        <p style={{ fontSize: 13, color: '#888', margin: 0 }}>Run a translation above to see it here. Each translation is persisted with the source, the model output, the model used, and any glossary terms that appeared in the input.</p>
+        <p style={{ fontSize: 13, color: '#888', margin: 0 }}>Run a translation above to see it here. Each translation is persisted with source, model output, model id, segments, and any glossary terms that appeared in the input.</p>
       ) : (
         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {translations.map((t) => (
-            <li key={t.id} style={{ padding: '10px 0', borderTop: '1px solid #f0f0f0' }}>
-              <div style={{ fontSize: 12, color: '#666', marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
-                <span>
-                  <strong>{languages[t.source_language] || t.source_language}</strong> → <strong>{languages[t.target_language] || t.target_language}</strong>
-                  <span style={{ marginLeft: 8, padding: '1px 8px', background: t.status === 'failed' ? '#ffe6e6' : t.status === 'translated' ? '#e7f6e7' : '#eee', color: t.status === 'failed' ? '#a02020' : t.status === 'translated' ? '#1a5d1a' : '#555', borderRadius: 10, fontSize: 11 }}>
-                    {t.status}
-                  </span>
-                </span>
-                <span style={{ fontSize: 11 }}>
-                  {t.duration_ms ? `${(t.duration_ms / 1000).toFixed(1)}s` : ''} {t.created_at ? `· ${new Date(t.created_at).toLocaleString()}` : ''}
-                </span>
-              </div>
-              <div style={{ fontSize: 13, marginBottom: 6 }}>
-                <em style={{ color: '#666' }}>Source:</em> <span>{truncate(t.source_text, 220)}</span>
-              </div>
-              {t.translated_text && (
-                <div style={{ fontSize: 13, padding: 8, background: '#f8fafc', borderLeft: '3px solid #0066cc', borderRadius: 3, marginBottom: 6 }}>
-                  <em style={{ color: '#666' }}>Translation:</em> <span style={{ whiteSpace: 'pre-wrap' }}>{t.translated_text}</span>
-                </div>
-              )}
-              {t.error && (
-                <div style={{ fontSize: 12, color: '#b00', marginBottom: 4 }}>Error: {t.error}</div>
-              )}
-              {Array.isArray(t.glossary_terms_seen) && t.glossary_terms_seen.length > 0 && (
-                <div style={{ fontSize: 11, color: '#555' }}>
-                  📖 Glossary terms in source:&nbsp;
-                  {t.glossary_terms_seen.map((g) => (
-                    <span key={g.id} style={{ display: 'inline-block', marginRight: 6, padding: '1px 6px', background: '#fff8e6', borderRadius: 4 }}>
-                      <strong>{g.term}</strong> → {g.translation} ({g.occurrences}×)
-                    </span>
-                  ))}
-                </div>
-              )}
-              {t.model_id && <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>{t.model_id}</div>}
-            </li>
+            <TranslationCard key={t.id} t={t} languages={languages} canEdit={canEdit} onUpdate={onUpdate} />
           ))}
         </ul>
       )}
     </section>
   );
+}
+
+function TranslationCard({
+  t,
+  languages,
+  canEdit,
+  onUpdate,
+}: {
+  t: TranslationRow;
+  languages: Record<string, string>;
+  canEdit: boolean;
+  onUpdate: (t: TranslationRow) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editedDraft, setEditedDraft] = useState(t.edited_text || t.translated_text || '');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const proposals = Array.isArray(t.proposals) ? t.proposals : [];
+  const openProposals = proposals.filter((p) => p.status === 'proposed');
+
+  async function onSave() {
+    if (!editedDraft.trim()) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/translation/translations/${t.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ edited_text: editedDraft.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErr(data.error || 'Save failed');
+        return;
+      }
+      onUpdate(data.translation);
+      setEditing(false);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Network error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <li style={{ padding: '12px 0', borderTop: '1px solid #f0f0f0' }}>
+      <div style={{ fontSize: 12, color: '#666', marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
+        <span>
+          <strong>{languages[t.source_language] || t.source_language}</strong> → <strong>{languages[t.target_language] || t.target_language}</strong>
+          <span style={{ marginLeft: 8, padding: '1px 8px', background: statusBg(t.status), color: statusFg(t.status), borderRadius: 10, fontSize: 11 }}>
+            {t.status}
+          </span>
+        </span>
+        <span style={{ fontSize: 11 }}>
+          {t.duration_ms ? `${(t.duration_ms / 1000).toFixed(1)}s` : ''} {t.created_at ? `· ${new Date(t.created_at).toLocaleString()}` : ''}
+        </span>
+      </div>
+
+      {/* Side-by-side segment view if available, otherwise the legacy flat source / translated layout */}
+      {Array.isArray(t.segments) && t.segments.length > 0 ? (
+        <table style={{ width: '100%', tableLayout: 'fixed', fontSize: 12, borderCollapse: 'collapse', marginBottom: 8 }}>
+          <thead>
+            <tr style={{ color: '#888', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              <th style={{ textAlign: 'left', width: '50%', padding: '4px 6px' }}>{languages[t.source_language] || t.source_language}</th>
+              <th style={{ textAlign: 'left', width: '50%', padding: '4px 6px' }}>{languages[t.target_language] || t.target_language}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {t.segments.map((s) => (
+              <tr key={s.index} style={{ verticalAlign: 'top' }}>
+                <td style={{ padding: '4px 6px', borderTop: '1px dashed #eee' }}>{s.source}</td>
+                <td style={{ padding: '4px 6px', borderTop: '1px dashed #eee', background: '#f8fafc' }}>{s.translated}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <>
+          <div style={{ fontSize: 13, marginBottom: 6 }}>
+            <em style={{ color: '#666' }}>Source:</em> <span>{truncate(t.source_text, 220)}</span>
+          </div>
+          {t.translated_text && (
+            <div style={{ fontSize: 13, padding: 8, background: '#f8fafc', borderLeft: '3px solid #0066cc', borderRadius: 3, marginBottom: 6 }}>
+              <em style={{ color: '#666' }}>Translation:</em> <span style={{ whiteSpace: 'pre-wrap' }}>{t.translated_text}</span>
+            </div>
+          )}
+        </>
+      )}
+
+      {t.error && <div style={{ fontSize: 12, color: '#b00', marginBottom: 4 }}>Error: {t.error}</div>}
+
+      {Array.isArray(t.glossary_terms_seen) && t.glossary_terms_seen.length > 0 && (
+        <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>
+          📖 Glossary terms in source:&nbsp;
+          {t.glossary_terms_seen.map((g) => (
+            <span key={g.id} style={{ display: 'inline-block', marginRight: 6, padding: '1px 6px', background: '#fff8e6', borderRadius: 4 }}>
+              <strong>{g.term}</strong> → {g.translation} ({g.occurrences}×)
+            </span>
+          ))}
+        </div>
+      )}
+
+      {t.edited_text && !editing && (
+        <div style={{ fontSize: 13, padding: 8, background: '#e7f6e7', borderLeft: '3px solid #1a5d1a', borderRadius: 3, marginBottom: 6 }}>
+          <em style={{ color: '#1a5d1a' }}>Editor's version:</em>{' '}
+          <span style={{ whiteSpace: 'pre-wrap' }}>{t.edited_text}</span>
+        </div>
+      )}
+
+      {/* Edit affordance */}
+      {canEdit && (
+        editing ? (
+          <div style={{ marginTop: 8 }}>
+            <textarea
+              value={editedDraft}
+              onChange={(e) => setEditedDraft(e.target.value)}
+              rows={4}
+              style={{ width: '100%', fontSize: 13, padding: 8, border: '1px solid #ccc', borderRadius: 4, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+            />
+            {err && <p style={{ color: '#b00', fontSize: 12, margin: '4px 0' }}>{err}</p>}
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <button
+                onClick={onSave}
+                disabled={saving || !editedDraft.trim()}
+                style={{ padding: '6px 12px', background: '#111', color: '#fff', border: 'none', borderRadius: 4, fontSize: 12, cursor: saving ? 'wait' : 'pointer' }}
+              >
+                {saving ? 'Saving…' : 'Save edit'}
+              </button>
+              <button
+                onClick={() => { setEditing(false); setEditedDraft(t.edited_text || t.translated_text || ''); }}
+                disabled={saving}
+                style={{ padding: '6px 12px', background: 'transparent', color: '#666', border: '1px solid #ccc', borderRadius: 4, fontSize: 12, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+            </div>
+            <p style={{ fontSize: 11, color: '#666', marginTop: 6 }}>
+              On save, Anchor diffs your edit against the model output and proposes glossary entries for any consistent substitutions you made.
+            </p>
+          </div>
+        ) : (
+          t.translated_text && !t.error ? (
+            <button
+              onClick={() => setEditing(true)}
+              style={{ padding: '4px 10px', background: 'transparent', color: '#0066cc', border: '1px solid #0066cc', borderRadius: 4, fontSize: 12, cursor: 'pointer' }}
+            >
+              {t.edited_text ? 'Refine edit' : 'Edit translation'}
+            </button>
+          ) : null
+        )
+      )}
+
+      {openProposals.length > 0 && (
+        <ProposalsPanel
+          translationId={t.id}
+          proposals={openProposals}
+          onResolved={(proposalId, resolved) =>
+            onUpdate({
+              ...t,
+              proposals: proposals.map((p) => (p.id === proposalId ? resolved : p)),
+            })
+          }
+        />
+      )}
+
+      {t.model_id && <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>{t.model_id}</div>}
+    </li>
+  );
+}
+
+function ProposalsPanel({
+  translationId,
+  proposals,
+  onResolved,
+}: {
+  translationId: string;
+  proposals: Proposal[];
+  onResolved: (proposalId: string, resolved: Proposal) => void;
+}) {
+  return (
+    <div style={{ marginTop: 10, padding: 10, background: '#fff8e6', border: '1px solid #f5d77a', borderRadius: 6 }}>
+      <h4 style={{ fontSize: 12, textTransform: 'uppercase', color: '#8a6d00', margin: '0 0 6px', letterSpacing: 0.5 }}>
+        Glossary proposals from your edit ({proposals.length})
+      </h4>
+      <p style={{ fontSize: 11, color: '#6b5800', margin: '0 0 8px' }}>
+        Anchor noticed you changed these phrases. Type the source-language term that should always translate this way, and we'll add a glossary entry so future translations honour it.
+      </p>
+      {proposals.map((p) => (
+        <ProposalRow
+          key={p.id}
+          translationId={translationId}
+          proposal={p}
+          onResolved={(resolved) => onResolved(p.id, resolved)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ProposalRow({
+  translationId,
+  proposal,
+  onResolved,
+}: {
+  translationId: string;
+  proposal: Proposal;
+  onResolved: (resolved: Proposal) => void;
+}) {
+  const [sourceTerm, setSourceTerm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function call(action: 'accept' | 'reject') {
+    if (action === 'accept' && !sourceTerm.trim()) {
+      setErr('Type the source-language term that should always translate to "' + proposal.to + '".');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/translation/translations/${translationId}/proposals/${proposal.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, source_term: sourceTerm.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErr(data.error || 'Action failed');
+        return;
+      }
+      onResolved(data.proposal as Proposal);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Network error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ background: 'white', border: '1px solid #f0d784', borderRadius: 4, padding: 8, marginBottom: 6 }}>
+      <div style={{ fontSize: 12, marginBottom: 6 }}>
+        Model said <code style={{ background: '#fef3d7', padding: '0 4px', borderRadius: 2 }}>{proposal.from}</code>
+        {' → '}you wrote <code style={{ background: '#e7f6e7', padding: '0 4px', borderRadius: 2 }}>{proposal.to}</code>
+        {proposal.occurrences > 1 && <span style={{ marginLeft: 6, color: '#666' }}>({proposal.occurrences}×)</span>}
+      </div>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <input
+          type="text"
+          value={sourceTerm}
+          onChange={(e) => setSourceTerm(e.target.value)}
+          placeholder="Source term (e.g. newsroom)"
+          style={{ flex: 1, fontSize: 12, padding: 6, border: '1px solid #ccc', borderRadius: 3 }}
+        />
+        <button
+          onClick={() => call('accept')}
+          disabled={busy}
+          style={{ padding: '6px 10px', background: '#1a5d1a', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, cursor: 'pointer' }}
+        >
+          {busy ? '…' : 'Add to glossary'}
+        </button>
+        <button
+          onClick={() => call('reject')}
+          disabled={busy}
+          style={{ padding: '6px 10px', background: 'transparent', color: '#666', border: '1px solid #ccc', borderRadius: 3, fontSize: 12, cursor: 'pointer' }}
+        >
+          Dismiss
+        </button>
+      </div>
+      {err && <p style={{ color: '#b00', fontSize: 11, margin: '4px 0 0' }}>{err}</p>}
+    </div>
+  );
+}
+
+function statusBg(s: TranslationRow['status']) {
+  if (s === 'failed') return '#ffe6e6';
+  if (s === 'translated') return '#e7f6e7';
+  if (s === 'edited') return '#e0f0ff';
+  return '#eee';
+}
+function statusFg(s: TranslationRow['status']) {
+  if (s === 'failed') return '#a02020';
+  if (s === 'translated') return '#1a5d1a';
+  if (s === 'edited') return '#0044aa';
+  return '#555';
 }
 
 function truncate(s: string, n: number) {

@@ -28,7 +28,7 @@ export async function GET(req: Request) {
   }
   const { rows } = await pool.query(
     `SELECT id, source_language, target_language, source_text, translated_text, edited_text,
-            status, model_id, glossary_terms_seen, duration_ms, error, created_at
+            status, model_id, glossary_terms_seen, segments, proposals, duration_ms, error, created_at
        FROM translations
       WHERE ${where}
       ORDER BY created_at DESC
