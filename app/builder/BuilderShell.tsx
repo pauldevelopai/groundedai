@@ -799,6 +799,7 @@ function Inner({
         <Link href="/research" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Research →</Link>
         <Link href="/translation" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Translator →</Link>
         <Link href="/producer" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Producer →</Link>
+        <Link href="/audience" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Audience →</Link>
         {currentUser.role === 'admin' && (
           <Link href="/team" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Team →</Link>
         )}
