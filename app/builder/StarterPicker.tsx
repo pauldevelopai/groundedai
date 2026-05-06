@@ -57,6 +57,7 @@ export default function StarterPicker({
   const [starters, setStarters] = useState<Starter[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
+  const [selected, setSelected] = useState<Starter | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,6 +131,15 @@ export default function StarterPicker({
           overflow: 'hidden',
         }}
       >
+        {selected ? (
+          <ConfirmStarter
+            starter={selected}
+            onConfirm={() => onPick(selected)}
+            onBack={() => setSelected(null)}
+            picking={picking}
+          />
+        ) : (
+          <>
         <header
           style={{
             padding: '28px 32px 18px',
@@ -186,7 +196,7 @@ export default function StarterPicker({
                     <button
                       key={s.slug}
                       disabled={picking}
-                      onClick={() => onPick(s)}
+                      onClick={() => setSelected(s)}
                       style={{
                         textAlign: 'left',
                         background: 'white',
@@ -240,7 +250,130 @@ export default function StarterPicker({
             Start blank →
           </button>
         </footer>
+        </>
+        )}
       </div>
     </div>
+  );
+}
+
+function ConfirmStarter({
+  starter,
+  onConfirm,
+  onBack,
+  picking,
+}: {
+  starter: Starter;
+  onConfirm: () => void;
+  onBack: () => void;
+  picking: boolean;
+}) {
+  type WfDef = {
+    nodes?: Array<{ id: string; agent_slug: string }>;
+    edges?: Array<unknown>;
+    inputs?: Array<{ name: string }>;
+  };
+  const def = starter.definition as WfDef;
+  const nodeCount = def.nodes?.length ?? 0;
+  const edgeCount = def.edges?.length ?? 0;
+  const inputs = def.inputs ?? [];
+  const inputNames = Array.from(new Set(inputs.map((i) => i.name)));
+
+  const colour = CATEGORY_COLOURS[starter.problem_category] || { bg: '#eee', fg: '#555' };
+
+  return (
+    <>
+      <header style={{ padding: '28px 32px 14px', borderBottom: '1px solid #eee' }}>
+        <span
+          style={{
+            fontSize: 11,
+            padding: '2px 10px',
+            background: colour.bg,
+            color: colour.fg,
+            borderRadius: 10,
+            display: 'inline-block',
+            marginBottom: 10,
+          }}
+        >
+          {starter.problem_category}
+        </span>
+        <h1 style={{ margin: 0, fontSize: 24 }}>Do you want to create a workflow template to help with this problem?</h1>
+      </header>
+
+      <div style={{ padding: '20px 32px 8px' }}>
+        <h2 style={{ fontSize: 18, margin: '0 0 4px' }}>{starter.title}</h2>
+        <p style={{ margin: '0 0 16px', color: '#555', fontSize: 14 }}>{starter.description}</p>
+
+        <section style={{ background: '#f8f5ff', border: '1px solid #d6c8f5', borderRadius: 8, padding: 14, marginBottom: 12 }}>
+          <h3 style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, color: '#5a3a99', margin: '0 0 6px' }}>
+            The problem this solves
+          </h3>
+          <p style={{ margin: 0, fontSize: 14, color: '#3d2c5e', lineHeight: 1.5 }}>{starter.problem_statement}</p>
+        </section>
+
+        <section style={{ background: '#f7f7f7', borderRadius: 8, padding: 14, marginBottom: 12, borderLeft: '3px solid #0066cc' }}>
+          <h3 style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, color: '#666', margin: '0 0 6px' }}>
+            What the user will see when they run it
+          </h3>
+          <p style={{ margin: 0, fontSize: 14, color: '#333', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{starter.user_instructions}</p>
+        </section>
+
+        <section style={{ background: '#fdfdfd', border: '1px solid #e5e5e5', borderRadius: 8, padding: 14 }}>
+          <h3 style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, color: '#666', margin: '0 0 6px' }}>
+            What Anchor will set up
+          </h3>
+          {nodeCount > 0 ? (
+            <p style={{ margin: 0, fontSize: 14, color: '#333' }}>
+              A starter graph with <strong>{nodeCount}</strong> agent node{nodeCount === 1 ? '' : 's'}
+              {edgeCount > 0 ? <> wired by <strong>{edgeCount}</strong> connection{edgeCount === 1 ? '' : 's'}</> : ''}
+              {inputNames.length > 0 ? (
+                <>, taking <strong>{inputNames.length}</strong> input{inputNames.length === 1 ? '' : 's'} from the user (<code>{inputNames.join('</code>, <code>')}</code>)</>
+              ) : null}
+              . You can refine everything on the canvas after.
+            </p>
+          ) : (
+            <p style={{ margin: 0, fontSize: 14, color: '#333' }}>
+              An empty canvas with the problem framing pre-filled. Use <em>Describe &amp; build</em> to have Anchor compose the graph for you, or drag agents in manually.
+            </p>
+          )}
+        </section>
+      </div>
+
+      <footer
+        style={{
+          borderTop: '1px solid #eee',
+          padding: '14px 32px',
+          background: '#fafafa',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
+        <button
+          onClick={onBack}
+          disabled={picking}
+          style={{ background: 'transparent', color: '#666', border: '1px solid #ccc', borderRadius: 6, padding: '8px 14px', fontSize: 13, cursor: picking ? 'wait' : 'pointer' }}
+        >
+          ← Pick a different one
+        </button>
+        <button
+          onClick={onConfirm}
+          disabled={picking}
+          style={{
+            background: '#111',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 6,
+            padding: '10px 18px',
+            fontSize: 14,
+            cursor: picking ? 'wait' : 'pointer',
+            opacity: picking ? 0.6 : 1,
+          }}
+        >
+          {picking ? 'Creating…' : 'Yes, create this workflow template'}
+        </button>
+      </footer>
+    </>
   );
 }
