@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
@@ -104,6 +104,8 @@ export default function ProducerIndex({
         <Link href="/newsroom" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Profile →</Link>
         <Link href="/research" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Research →</Link>
         <Link href="/translation" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Translator →</Link>
+        <Link href="/audience" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audience →</Link>
+        <Link href="/fundraiser" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Fundraiser →</Link>
         {(role === 'builder' || role === 'admin') && (
           <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
         )}
@@ -126,8 +128,10 @@ export default function ProducerIndex({
           )}
         </div>
         <p style={{ color: '#666', fontSize: 14, marginTop: 0 }}>
-          Producer turns articles into broadcast-ready scripts, podcast outlines, and video briefs — written in your newsroom's voice (from your <Link href="/newsroom" style={{ color: '#0066cc' }}>profile</Link>). Audio assembly and vertical-video output land in Slices 12 and 13.
+          Producer turns articles into broadcast-ready scripts, podcast outlines, and video briefs — written in your newsroom&apos;s voice (from your <Link href="/newsroom" style={{ color: '#0066cc' }}>profile</Link>). Open any radio script and click <strong>Generate audio</strong> to assemble it into a WAV using local-only TTS + procedural music stings. Vertical video and audiograms land in Slice 13.
         </p>
+
+        {canCreate && <TranscribePanel />}
 
         {showNew && canCreate && (
           <form onSubmit={onCreate} style={{ background: 'white', border: '1px solid #ddd', borderRadius: 8, padding: 16, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -185,5 +189,137 @@ export default function ProducerIndex({
         )}
       </div>
     </main>
+  );
+}
+
+// ─── Transcribe panel (one-off Whisper) ────────────────────────────────────
+type TranscriptRow = {
+  id: string;
+  filename: string | null;
+  duration_seconds: number | null;
+  language: string | null;
+  status: 'pending' | 'transcribed' | 'failed';
+  duration_ms: number | null;
+  error: string | null;
+  text_length: number;
+  created_at: string;
+};
+
+function TranscribePanel() {
+  const [open, setOpen] = useState(false);
+  const [language, setLanguage] = useState('en');
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [list, setList] = useState<TranscriptRow[]>([]);
+  const [openTranscript, setOpenTranscript] = useState<string | null>(null);
+  const [openText, setOpenText] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const res = await fetch('/api/producer/transcribe');
+      const data = await res.json();
+      if (!cancelled && res.ok) setList(data.transcripts || []);
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!file) return;
+    setBusy(true); setErr(null);
+    try {
+      const fd = new FormData();
+      fd.append('audio', file);
+      fd.append('language', language);
+      const res = await fetch('/api/producer/transcribe', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Transcription failed');
+      // Reload list
+      const lr = await fetch('/api/producer/transcribe');
+      const ld = await lr.json();
+      setList(ld.transcripts || []);
+      setOpenTranscript(data.transcriptId);
+      setOpenText(data.text);
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
+
+  async function viewTranscript(id: string) {
+    setOpenTranscript(id);
+    setOpenText('Loading…');
+    const res = await fetch(`/api/producer/transcripts/${id}`);
+    const data = await res.json();
+    setOpenText(res.ok ? (data.transcript?.text || '(empty)') : (data.error || 'Failed to load'));
+  }
+
+  return (
+    <section style={{ background: 'white', border: '1px solid #e5e5e5', borderRadius: 8, padding: 14, marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <div>
+          <h2 style={{ fontSize: 14, margin: 0 }}>🎤 Transcribe audio</h2>
+          <p style={{ fontSize: 12, color: '#666', margin: '2px 0 0' }}>
+            Whisper-base runs locally — first run downloads ~150 MB into the HuggingFace cache, then everything stays on your machine.
+          </p>
+        </div>
+        <button onClick={() => setOpen(o => !o)} style={{ padding: '6px 12px', background: 'white', color: '#0066cc', border: '1px solid #0066cc', borderRadius: 4, fontSize: 12, cursor: 'pointer' }}>
+          {open ? 'Hide' : 'Open'}
+        </button>
+      </div>
+      {open && (
+        <>
+          <form onSubmit={submit} style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <label style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+              <span>Audio file</span>
+              <input type="file" accept="audio/*,.m4a,.mp3,.wav,.ogg,.opus,.aac" onChange={e => setFile(e.target.files?.[0] || null)} required />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+              <span>Language</span>
+              <select value={language} onChange={e => setLanguage(e.target.value)} style={{ padding: 6, fontSize: 12, border: '1px solid #ccc', borderRadius: 4 }}>
+                <option value="en">English</option>
+                <option value="zu">isiZulu</option>
+                <option value="xh">isiXhosa</option>
+                <option value="af">Afrikaans</option>
+                <option value="sn">Shona</option>
+                <option value="ny">Chichewa</option>
+                <option value="auto">Auto-detect</option>
+              </select>
+            </label>
+            <button type="submit" disabled={!file || busy} style={{ padding: '6px 14px', background: '#0066cc', color: 'white', border: 'none', borderRadius: 4, fontSize: 12, cursor: 'pointer', opacity: busy ? 0.5 : 1 }}>
+              {busy ? 'Transcribing…' : 'Transcribe'}
+            </button>
+            {err && <span style={{ color: '#b00', fontSize: 12 }}>{err}</span>}
+          </form>
+
+          {list.length > 0 && (
+            <ul style={{ listStyle: 'none', padding: 0, marginTop: 12 }}>
+              {list.map(t => (
+                <li key={t.id} style={{ fontSize: 12, padding: '6px 0', borderTop: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                  <div>
+                    <strong>{t.filename || '(untitled)'}</strong>
+                    <span style={{ color: '#666', marginLeft: 6 }}>
+                      {t.language || '?'} · {t.duration_seconds ? `${Math.round(t.duration_seconds)}s` : 'unknown'}
+                      {t.duration_ms ? ` · ran in ${(t.duration_ms / 1000).toFixed(1)}s` : ''}
+                      {t.text_length > 0 ? ` · ${t.text_length} chars` : ''}
+                    </span>
+                    {t.error && <div style={{ color: '#b00', marginTop: 2 }}>{t.error}</div>}
+                  </div>
+                  <button onClick={() => viewTranscript(t.id)} style={{ background: 'white', border: '1px solid #d0d0d0', padding: '2px 8px', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
+                    View
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {openTranscript && openText && (
+            <div style={{ marginTop: 12, padding: 10, background: '#fafbfc', borderRadius: 4, maxHeight: 280, overflow: 'auto' }}>
+              <p style={{ fontSize: 13, whiteSpace: 'pre-wrap', margin: 0 }}>{openText}</p>
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }

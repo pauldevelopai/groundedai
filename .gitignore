@@ -41,3 +41,9 @@ coverage/
 
 # Tmp
 tmp/
+
+# Producer-generated binary assets (audio/video/images). The producer_assets
+# table holds metadata; the actual files are local-only in dev and behind
+# object storage in production.
+storage/producer/*
+!storage/producer/.gitkeep

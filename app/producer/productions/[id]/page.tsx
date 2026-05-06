@@ -24,6 +24,17 @@ export default async function ProductionPage({ params }: { params: Promise<{ id:
   const production = rows[0];
   if (!production || production.newsroom_id !== session.newsroomId) notFound();
 
+  // Surface any assembled audio assets for this production (or, for an
+  // audio_assembly row, the WAV it produced). The detail view can then
+  // render an inline <audio> player.
+  const assetsRes = await pool.query(
+    `SELECT id, kind, format, storage_path, bytes, duration_seconds, metadata, created_at
+       FROM producer_assets
+      WHERE production_id = $1 OR (metadata->>'source_production_id') = $2
+      ORDER BY created_at DESC`,
+    [id, id]
+  );
+
   const canEdit = session.role === 'builder' || session.role === 'admin';
-  return <ProductionDetail production={production} canEdit={canEdit} role={session.role} />;
+  return <ProductionDetail production={production} assets={assetsRes.rows} canEdit={canEdit} role={session.role} />;
 }

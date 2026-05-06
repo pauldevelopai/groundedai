@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentSession } from '@/app/lib/session';
 import { pool } from '@/lib/db';
-const { runProduction } = require('@/lib/agents/producer');
+const { runProduction, runAudioAssembly } = require('@/lib/agents/producer');
 
 export async function GET(req: Request) {
   const session = await getCurrentSession();
@@ -47,20 +47,44 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Forbidden — builder role required' }, { status: 403 });
   }
 
-  let body: { title?: string; source_text?: string; format?: string; archive_context?: string };
+  let body: {
+    title?: string;
+    source_text?: string;
+    format?: string;
+    archive_context?: string;
+    source_production_id?: string;
+    language?: string;
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
-  if (!body.source_text || typeof body.source_text !== 'string') {
-    return NextResponse.json({ error: 'source_text is required' }, { status: 400 });
   }
   if (!body.format || typeof body.format !== 'string') {
     return NextResponse.json({ error: 'format is required' }, { status: 400 });
   }
 
   try {
+    if (body.format === 'audio_assembly') {
+      if (!body.source_production_id) {
+        return NextResponse.json({ error: 'source_production_id is required for audio_assembly' }, { status: 400 });
+      }
+      const result = await runAudioAssembly({
+        sourceProductionId: body.source_production_id,
+        title: body.title,
+        language: body.language || 'en',
+        context: {
+          newsroomId: session.newsroomId,
+          userId: session.userId,
+          endpoint: '/api/producer/productions',
+        },
+      });
+      return NextResponse.json(result, { status: 201 });
+    }
+
+    if (!body.source_text || typeof body.source_text !== 'string') {
+      return NextResponse.json({ error: 'source_text is required' }, { status: 400 });
+    }
     const result = await runProduction({
       title: body.title,
       sourceText: body.source_text,

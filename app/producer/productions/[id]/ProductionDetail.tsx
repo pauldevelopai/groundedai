@@ -41,19 +41,34 @@ const FORMAT_LABELS: Record<Format, string> = {
   audiogram: '📊 Audiogram',
 };
 
+type Asset = {
+  id: string;
+  kind: 'audio' | 'video' | 'image';
+  format: string;
+  storage_path: string;
+  bytes: number | null;
+  duration_seconds: number | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 export default function ProductionDetail({
   production,
+  assets,
   canEdit,
   role,
 }: {
   production: Production;
+  assets: Asset[];
   canEdit: boolean;
   role: 'user' | 'builder' | 'admin';
 }) {
   const router = useRouter();
   const [p, setP] = useState(production);
+  const [assetList, setAssetList] = useState<Asset[]>(assets);
   const [notes, setNotes] = useState(production.notes || '');
   const [busy, setBusy] = useState(false);
+  const [assembling, setAssembling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function patch(body: Record<string, unknown>) {
@@ -98,6 +113,27 @@ export default function ProductionDetail({
 
   const view = (p.edited_output as Record<string, unknown>) || (p.output as Record<string, unknown>);
 
+  async function assembleAudio() {
+    setAssembling(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/producer/productions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ format: 'audio_assembly', source_production_id: p.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Assembly failed');
+      // The new production's row carries its own asset; reload from server.
+      router.refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setAssembling(false);
+    }
+  }
+  void setAssetList; // surface helper for future inline mutations
+
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
       <header style={{ background: 'white', borderBottom: '1px solid #e5e5e5', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -136,6 +172,54 @@ export default function ProductionDetail({
             <pre style={{ fontSize: 12, background: '#fafafa', padding: 14, borderRadius: 4, overflow: 'auto' }}>{JSON.stringify(view, null, 2)}</pre>
           )}
         </section>
+
+        {/* Audio assembly: button on radio_script productions, player on audio_assembly productions or any with assets */}
+        {(p.format === 'radio_script' || p.format === 'audio_assembly' || assetList.length > 0) && (
+          <section style={{ background: 'white', border: '1px solid #e5e5e5', borderRadius: 8, padding: 18, marginTop: 16 }}>
+            <h2 style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.5, color: '#666', margin: '0 0 10px' }}>
+              Audio
+            </h2>
+            {p.format === 'radio_script' && canEdit && (
+              <div style={{ marginBottom: 12 }}>
+                <p style={{ fontSize: 13, color: '#444', margin: '0 0 6px' }}>
+                  Assemble this script into a mono WAV. Uses local-only TTS (Piper / espeak-ng / macOS say) and procedural music stings — nothing leaves the machine.
+                </p>
+                <button
+                  onClick={assembleAudio}
+                  disabled={assembling}
+                  style={{ padding: '8px 14px', background: '#0066cc', color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, cursor: 'pointer', opacity: assembling ? 0.5 : 1 }}
+                >
+                  {assembling ? 'Assembling — may take a minute…' : '🔊 Generate audio'}
+                </button>
+              </div>
+            )}
+
+            {assetList.length === 0 ? (
+              <p style={{ fontSize: 13, color: '#888', margin: 0 }}>No audio assembled yet.</p>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {assetList.filter(a => a.kind === 'audio').map(a => (
+                  <li key={a.id} style={{ padding: '8px 0', borderTop: '1px solid #f0f0f0' }}>
+                    <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
+                      {a.format.toUpperCase()}
+                      {a.duration_seconds && <> · {Math.round(a.duration_seconds)}s</>}
+                      {a.bytes && <> · {(a.bytes / 1024).toFixed(0)} KB</>}
+                      {(() => {
+                        const tts = (a.metadata as { segment_log?: Array<{ engine?: string }> }).segment_log;
+                        if (!Array.isArray(tts) || tts.length === 0) return null;
+                        const engines = [...new Set(tts.map(s => s.engine).filter(Boolean))];
+                        return <> · TTS: {engines.join(', ')}</>;
+                      })()}
+                    </div>
+                    <audio controls preload="metadata" style={{ width: '100%' }}>
+                      <source src={`/api/producer/assets/${a.id}`} type={a.format === 'wav' ? 'audio/wav' : 'audio/mpeg'} />
+                    </audio>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
         {/* Editor notes + status actions */}
         {canEdit && (
