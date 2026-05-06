@@ -73,12 +73,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Invalid definition: ${validation.error}` }, { status: 400 });
   }
 
-  const slug = normaliseSlug(body.slug || name);
+  const baseSlug = normaliseSlug(body.slug || name);
   const triggerPhrase = body.trigger_phrase?.trim() || null;
   const description = body.description?.trim() || null;
   const problemStatement = body.problem_statement?.trim() || null;
   const problemCategory = body.problem_category?.trim() || null;
   const userInstructions = body.user_instructions?.trim() || null;
+
+  // Auto-append a counter if the slug is already taken by another workflow
+  // in this newsroom. Common case: "Untitled workflow" via Start-blank can
+  // be invoked many times; we don't want a 409 every time. Bound at 100 so
+  // a runaway loop isn't possible.
+  const existingRes = await pool.query(
+    `SELECT slug FROM workflows
+      WHERE newsroom_id = $1 AND (slug = $2 OR slug LIKE $3)`,
+    [session.newsroomId, baseSlug, `${baseSlug}-%`]
+  );
+  const taken = new Set<string>(existingRes.rows.map((r: { slug: string }) => r.slug));
+  let slug = baseSlug;
+  if (taken.has(slug)) {
+    let n = 2;
+    while (n < 100 && taken.has(`${baseSlug}-${n}`)) n++;
+    slug = `${baseSlug}-${n}`;
+  }
 
   try {
     const { rows } = await pool.query(
