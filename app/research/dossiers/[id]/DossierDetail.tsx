@@ -105,6 +105,13 @@ export default function DossierDetail({
   const [info, setInfo] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
+  const [analyzing, setAnalyzing] = useState(false);
+  const [showAnalyzeOpts, setShowAnalyzeOpts] = useState(false);
+  const [depth, setDepth] = useState<'quick' | 'thorough' | 'forensic'>('thorough');
+  const [jurisdiction, setJurisdiction] = useState<'none' | 'SA' | 'ZW' | 'ZM' | 'KE'>('none');
+  const [coverage, setCoverage] = useState<'basic' | 'full' | 'financial'>('full');
+  const [reanalyze, setReanalyze] = useState(false);
+
   async function refresh() {
     const res = await fetch(`/api/research/dossiers/${dossier.id}`);
     const data = await res.json();
@@ -136,6 +143,41 @@ export default function DossierDetail({
     } finally {
       setUploading(false);
       if (fileInput.current) fileInput.current.value = '';
+    }
+  }
+
+  async function onAnalyze() {
+    setError(null);
+    setInfo(null);
+    setAnalyzing(true);
+    try {
+      const res = await fetch(`/api/research/dossiers/${dossier.id}/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          depth,
+          jurisdiction,
+          coverage,
+          reanalyze,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Analyze failed');
+        return;
+      }
+      const errMsg = data.errors?.length ? ` (with ${data.errors.length} doc error${data.errors.length === 1 ? '' : 's'})` : '';
+      setInfo(
+        `Analyzed ${data.analyzed} doc${data.analyzed === 1 ? '' : 's'} in ${(data.durationMs / 1000).toFixed(1)}s — ` +
+          `${data.entities_created} new entit${data.entities_created === 1 ? 'y' : 'ies'}, ` +
+          `${data.entities_updated} updated, ${data.relationships_created} relationship${data.relationships_created === 1 ? '' : 's'}, ` +
+          `${data.findings_created} finding${data.findings_created === 1 ? '' : 's'} — cost $${data.totalCost.costUsd.toFixed(4)}${errMsg}`
+      );
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setAnalyzing(false);
     }
   }
 
@@ -238,10 +280,62 @@ export default function DossierDetail({
                 ))}
               </ul>
             )}
-            {canEdit && (
-              <p style={{ marginTop: 14, padding: '8px 10px', background: '#fff8e6', border: '1px dashed #d8c478', borderRadius: 6, fontSize: 12, color: '#6b5800' }}>
-                ⏳ <strong>Coming next:</strong> Click "Analyze with Researcher" to extract entities, relationships, and follow-up questions across all parsed documents.
-              </p>
+            {canEdit && documents.some((d) => d.status === 'parsed' || d.status === 'analyzed') && (
+              <div style={{ marginTop: 14, padding: 12, background: '#f8f5ff', border: '1px solid #d6c8f5', borderRadius: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <strong style={{ fontSize: 13, color: '#5a3a99' }}>🔎 Analyze with Researcher</strong>
+                  <button
+                    onClick={() => setShowAnalyzeOpts((s) => !s)}
+                    style={{ background: 'transparent', border: 'none', color: '#5a3a99', fontSize: 12, cursor: 'pointer' }}
+                  >
+                    {showAnalyzeOpts ? 'hide options' : 'options'}
+                  </button>
+                </div>
+                {showAnalyzeOpts && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                    <label style={{ fontSize: 12, color: '#5a3a99', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      Depth
+                      <select value={depth} onChange={(e) => setDepth(e.target.value as 'quick' | 'thorough' | 'forensic')} style={{ fontSize: 12, padding: 4, border: '1px solid #d6c8f5', borderRadius: 3, background: 'white', flex: 1 }}>
+                        <option value="quick">Quick — top 5–10 entities</option>
+                        <option value="thorough">Thorough (default)</option>
+                        <option value="forensic">Forensic — exhaustive</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, color: '#5a3a99', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      Jurisdiction
+                      <select value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value as 'none' | 'SA' | 'ZW' | 'ZM' | 'KE')} style={{ fontSize: 12, padding: 4, border: '1px solid #d6c8f5', borderRadius: 3, background: 'white', flex: 1 }}>
+                        <option value="none">None</option>
+                        <option value="SA">South Africa</option>
+                        <option value="ZW">Zimbabwe</option>
+                        <option value="ZM">Zambia</option>
+                        <option value="KE">Kenya</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, color: '#5a3a99', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      Coverage
+                      <select value={coverage} onChange={(e) => setCoverage(e.target.value as 'basic' | 'full' | 'financial')} style={{ fontSize: 12, padding: 4, border: '1px solid #d6c8f5', borderRadius: 3, background: 'white', flex: 1 }}>
+                        <option value="basic">Basic — people, orgs, places, dates</option>
+                        <option value="full">Full — basic + amounts + relationships (default)</option>
+                        <option value="financial">Financial — money flows only</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12, color: '#5a3a99', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                      <input type="checkbox" checked={reanalyze} onChange={(e) => setReanalyze(e.target.checked)} />
+                      Re-run on already-analyzed documents
+                    </label>
+                  </div>
+                )}
+                <button
+                  onClick={onAnalyze}
+                  disabled={analyzing}
+                  style={{ marginTop: 10, width: '100%', padding: '8px 12px', background: '#7a5800', color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, cursor: analyzing ? 'wait' : 'pointer', opacity: analyzing ? 0.5 : 1 }}
+                >
+                  {analyzing ? 'Analyzing — this may take a minute…' : `Analyze ${reanalyze ? 'all documents' : 'new documents'}`}
+                </button>
+                <p style={{ fontSize: 11, color: '#6a4ca0', marginTop: 6, marginBottom: 0 }}>
+                  Runs Claude across each parsed document, extracts entities + relationships + key claims + follow-up questions, and merges them into this dossier. Cost ~$0.05–0.20 per document depending on length.
+                </p>
+              </div>
             )}
           </section>
 
