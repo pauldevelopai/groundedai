@@ -48,6 +48,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import WorkflowRunner from './WorkflowRunner';
+import StarterPicker, { type Starter } from './StarterPicker';
 
 export type AgentConfigField =
   | { type: 'number'; default: number; min?: number; max?: number; step?: number; label?: string; description?: string }
@@ -383,6 +384,7 @@ function Inner({
   const [status, setStatus] = useState<{ kind: 'ok' | 'error' | 'info'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [showStarterPicker, setShowStarterPicker] = useState(false);
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [newsroomUsers, setNewsroomUsers] = useState<NewsroomUser[]>([]);
@@ -492,7 +494,12 @@ function Inner({
     setSelectedNodeId(null);
   }, [selectedNode, wfOutput]);
 
-  async function onCreateNew() {
+  function onClickNew() {
+    if (creating) return;
+    setShowStarterPicker(true);
+  }
+
+  async function createWorkflowFromBody(body: Record<string, unknown>) {
     if (creating) return;
     setStatus(null);
     setCreating(true);
@@ -500,11 +507,7 @@ function Inner({
       const res = await fetch('/api/workflows', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'Untitled workflow',
-          definition: EMPTY_DEFINITION,
-          is_shared: false,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -523,17 +526,38 @@ function Inner({
           is_shared: wf.is_shared,
           trigger_phrase: wf.trigger_phrase,
           description: wf.description,
+          problem_category: wf.problem_category,
           updated_at: new Date().toISOString(),
         },
         ...ws,
       ]);
       setActiveWorkflow(wf);
+      setShowStarterPicker(false);
       router.replace(`/builder/${wf.id}`);
     } catch (e) {
       setStatus({ kind: 'error', text: e instanceof Error ? e.message : 'Network error' });
     } finally {
       setCreating(false);
     }
+  }
+
+  async function onPickStarter(s: Starter) {
+    await createWorkflowFromBody({
+      name: s.title,
+      problem_statement: s.problem_statement,
+      problem_category: s.problem_category,
+      user_instructions: s.user_instructions,
+      definition: s.definition,
+      is_shared: false,
+    });
+  }
+
+  async function onStartBlank() {
+    await createWorkflowFromBody({
+      name: 'Untitled workflow',
+      definition: EMPTY_DEFINITION,
+      is_shared: false,
+    });
   }
 
   async function onSwitch(id: string) {
@@ -787,7 +811,7 @@ function Inner({
               </h3>
               {(currentUser.role === 'builder' || currentUser.role === 'admin') && (
                 <button
-                  onClick={onCreateNew}
+                  onClick={onClickNew}
                   disabled={creating}
                   title="New workflow"
                   style={{ width: 24, height: 24, padding: 0, lineHeight: '20px', textAlign: 'center', background: '#111', color: '#fff', border: 'none', borderRadius: 4, cursor: creating ? 'wait' : 'pointer', fontSize: 16 }}
@@ -886,7 +910,7 @@ function Inner({
               <p style={{ fontSize: 14 }}>No workflow open.</p>
               {(currentUser.role === 'builder' || currentUser.role === 'admin') && (
                 <button
-                  onClick={onCreateNew}
+                  onClick={onClickNew}
                   style={{ padding: '8px 16px', background: '#111', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}
                 >
                   + Create your first workflow
@@ -913,6 +937,16 @@ function Inner({
             </ReactFlow>
           )}
         </div>
+
+        {/* Starter picker — shown when "+ New" is clicked */}
+        {showStarterPicker && (
+          <StarterPicker
+            onPick={onPickStarter}
+            onBlank={onStartBlank}
+            onCancel={() => !creating && setShowStarterPicker(false)}
+            picking={creating}
+          />
+        )}
 
         {/* Test-as-user overlay */}
         {testPanelOpen && activeWorkflow && (
