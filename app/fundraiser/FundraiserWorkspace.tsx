@@ -96,6 +96,7 @@ export default function FundraiserWorkspace({
         <Link href="/audience" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audience →</Link>
         <Link href="/operations" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Operations →</Link>
         <Link href="/distribution" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Distributor →</Link>
+        <Link href="/social" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Social →</Link>
         {(role === 'builder' || role === 'admin') && (
           <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
         )}
