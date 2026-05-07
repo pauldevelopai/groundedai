@@ -47,3 +47,6 @@ tmp/
 # object storage in production.
 storage/producer/*
 !storage/producer/.gitkeep
+
+# Local Claude Code settings — workstation-specific.
+.claude/
