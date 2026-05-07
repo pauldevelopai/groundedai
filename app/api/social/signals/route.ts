@@ -94,6 +94,12 @@ type IngestInput = {
   author_handle?: string; author_display_name?: string;
   author_metadata?: Record<string, unknown>;
   posted_at?: string; platform?: string;
+  // Slice 15c — origin attribution beyond text
+  account_country?: string;
+  account_created_at?: string;
+  posting_cadence_note?: string;
+  profile_photo_url?: string;
+  name_change_history?: Array<{ name: string; changed_at?: string }>;
 };
 type KeywordRow = { id: string; status: string; term: string; match_kind: string };
 
@@ -105,6 +111,11 @@ async function ingestOne(newsroomId: string, userId: string, ingestionKind: stri
     text: s.raw_text || '',
     postUrl: s.post_url,
     authorHandle: s.author_handle,
+    accountCountry: s.account_country,
+    accountCreatedAt: s.account_created_at,
+    postingCadenceNote: s.posting_cadence_note,
+    profilePhotoUrl: s.profile_photo_url,
+    nameChangeHistory: s.name_change_history,
     newsroomId,
   });
   const entityNames = analysis.entity_names || [];
@@ -112,14 +123,27 @@ async function ingestOne(newsroomId: string, userId: string, ingestionKind: stri
   const matchedIds = matched.map((k: KeywordRow) => k.id);
 
   const sourceDomain = extractDomain(s.post_url) || null;
+  const o = analysis.origin_signals || {};
+  const networkMatchIds = Array.isArray(o.network_matches)
+    ? (o.network_matches as Array<{ network_id: string }>).map(m => m.network_id).filter(Boolean)
+    : [];
+  const outboundUrls = Array.isArray(o.outbound_urls) ? (o.outbound_urls as string[]) : [];
+  const outboundUrlFindings = (o.domain_findings && typeof o.domain_findings === 'object')
+    ? (o.domain_findings as Record<string, unknown>)
+    : {};
 
   const { rows } = await pool.query(
     `INSERT INTO social_signals
        (newsroom_id, ingested_by, ingestion_kind, platform,
         post_url, author_handle, author_display_name, author_metadata,
         source_domain, raw_text, posted_at, matched_keywords,
-        analysis, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12::uuid[], $13::jsonb, 'analysed')
+        analysis, status,
+        account_country, account_country_iso, account_created_at,
+        posting_cadence_note, profile_photo_url, name_change_history,
+        outbound_urls, outbound_url_findings, text_simhash, matched_networks)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12::uuid[], $13::jsonb, 'analysed',
+             $14, $15, $16, $17, $18, $19::jsonb,
+             $20::text[], $21::jsonb, $22::bigint, $23::uuid[])
      RETURNING *`,
     [
       newsroomId, userId, ik, platform,
@@ -132,6 +156,17 @@ async function ingestOne(newsroomId: string, userId: string, ingestionKind: stri
       s.posted_at || null,
       matchedIds,
       JSON.stringify(analysis),
+      // origin columns
+      s.account_country?.trim() || null,
+      (o.account_country_iso as string) || null,
+      s.account_created_at || null,
+      s.posting_cadence_note?.trim() || null,
+      s.profile_photo_url?.trim() || null,
+      JSON.stringify(Array.isArray(s.name_change_history) ? s.name_change_history : []),
+      outboundUrls,
+      JSON.stringify(outboundUrlFindings),
+      analysis.text_simhash || null,
+      networkMatchIds,
     ]
   );
   return rows[0];

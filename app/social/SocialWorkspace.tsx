@@ -14,11 +14,25 @@ type Signal = {
   source_domain: string | null; raw_text: string;
   posted_at: string | null;
   matched_keywords: string[];
+  // Slice 15c origin columns
+  account_country: string | null;
+  account_country_iso: string | null;
+  account_created_at: string | null;
+  posting_cadence_note: string | null;
+  matched_networks: string[];
   analysis: {
     lang?: { code: string; name: string; confidence: number; secondary?: { code: string; name: string; confidence: number } | null };
     entities?: { persons: string[]; orgs: string[]; locations: string[]; misc: string[] };
     origin_signals?: {
+      account_country?: string | null;
+      account_country_iso?: string | null;
+      account_age_days?: number | null;
+      network_matches?: Array<{ network_id: string; network_name: string; attributed_to: string; alignment: string; matched_on: string[] }>;
+      simhash_siblings?: Array<{ signal_id: string; author_handle: string | null; hamming_distance: number }>;
       source_match?: { source_id: string; identifier: string; alignment: string; confidence: number } | null;
+      outbound_urls?: string[];
+      outbound_domains?: string[];
+      domain_findings?: Record<string, { ssl_age_days?: number; ssl_subject_country?: string; whois_country?: string; whois_age_days?: number }>;
       domain?: string | null;
       hints?: string[];
     };
@@ -27,6 +41,23 @@ type Signal = {
   status: 'new' | 'analysing' | 'analysed' | 'flagged' | 'cleared' | 'reported' | 'failed';
   notes: string | null;
   created_at: string;
+};
+
+type KnownNetwork = {
+  id: string; name: string;
+  aliases: string[];
+  attributed_to: string | null;
+  attribution_country: string | null;
+  description: string | null;
+  alignment: 'state_russia' | 'state_china' | 'state_other' | 'cib_network' | 'extremist';
+  confidence: number | string | null;
+  targets_africa: boolean;
+  known_handles: string[];
+  known_domains: string[];
+  known_phrases: string[];
+  pattern_notes: string[];
+  public_reports: Array<{ publisher?: string; title?: string; url?: string; year?: number }>;
+  is_default: boolean;
 };
 type Keyword = {
   id: string; term: string; match_kind: 'phrase' | 'regex' | 'name';
@@ -56,11 +87,12 @@ const KIND_LABELS: Record<BriefRow['kind'], string> = {
 };
 
 export default function SocialWorkspace({
-  initialSignals, initialKeywords, initialSources, initialBriefs, canEdit, role,
+  initialSignals, initialKeywords, initialSources, initialNetworks, initialBriefs, canEdit, role,
 }: {
   initialSignals: Signal[];
   initialKeywords: Keyword[];
   initialSources: Source[];
+  initialNetworks: KnownNetwork[];
   initialBriefs: BriefRow[];
   canEdit: boolean;
   role: 'user' | 'builder' | 'admin';
@@ -69,6 +101,7 @@ export default function SocialWorkspace({
   const [signals, setSignals] = useState(initialSignals);
   const [keywords, setKeywords] = useState(initialKeywords);
   const [sources, setSources] = useState(initialSources);
+  const [networks, setNetworks] = useState(initialNetworks);
   const [briefs, setBriefs] = useState(initialBriefs);
 
   return (
@@ -98,12 +131,13 @@ export default function SocialWorkspace({
       <div style={{ maxWidth: 1180, margin: '0 auto', padding: '24px 20px' }}>
         <h1 style={{ margin: 0, fontSize: 24 }}>Social Listener</h1>
         <p style={{ color: '#666', fontSize: 14, marginTop: 4 }}>
-          Track Facebook + cross-platform posts for narratives that matter to your newsroom. Open-source language detection (xlm-roberta) + multilingual NER (wikineural) attach to every ingested signal automatically — strong on Russian and Chinese signals. The agent on top reasons about origin attribution and recommended response.
+          Track posts for narratives that matter to your newsroom. The threat model is English-language posts written by bot networks operated out of Russia or China, targeting African audiences as fake &ldquo;local&rdquo; voices. Origin attribution priority: <strong>Page Transparency country</strong> (the gold) → <strong>documented IO networks</strong> (Doppelganger, African Initiative, Spamouflage Dragon, Wagner-aligned Africa) → <strong>simhash siblings</strong> (coordinated copy-paste) → <strong>outbound URL forensics</strong> → account recency → source-domain match → language. All structural signals run on every ingest.
         </p>
 
         <BriefsSection briefs={briefs} signals={signals} canEdit={canEdit} onChange={setBriefs} onRefresh={() => router.refresh()} />
         <SignalsSection signals={signals} canEdit={canEdit} onChange={setSignals} />
         <KeywordsSection keywords={keywords} canEdit={canEdit} onChange={setKeywords} />
+        <NetworksSection networks={networks} canEdit={canEdit} onChange={setNetworks} />
         <SourcesSection sources={sources} canEdit={canEdit} onChange={setSources} />
       </div>
     </main>
@@ -250,17 +284,40 @@ function SignalCard({ signal: s, canEdit, onChange }: { signal: Signal; canEdit:
     onChange(data.signal);
   }
   const a = s.analysis || {};
-  const sourceMatch = a.origin_signals?.source_match;
-  const hints = a.origin_signals?.hints || [];
+  const o = a.origin_signals || {};
+  const sourceMatch = o.source_match;
+  const networks = o.network_matches || [];
+  const siblings = o.simhash_siblings || [];
+  const hints = o.hints || [];
+  const accountCountry = o.account_country || s.account_country;
+  const accountCountryIso = o.account_country_iso || s.account_country_iso;
+  const accountAge = o.account_age_days;
+  const isHostileAdminCountry = ['RU', 'CN', 'BY', 'IR', 'KP'].includes(String(accountCountryIso || ''));
   return (
     <div style={cardStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
             <strong>{s.author_display_name || s.author_handle || s.source_domain || 'Unknown source'}</strong>
             <Tag muted>{s.platform}</Tag>
-            {a.lang && <Tag muted>{a.lang.name} {(a.lang.confidence * 100).toFixed(0)}%</Tag>}
+            {accountCountry && (
+              <Tag accent={isHostileAdminCountry ? alignmentTone('cib_network') : { bg: '#eef0f3', fg: '#555' }}>
+                📍 admins in {accountCountry}{accountCountryIso ? ` (${accountCountryIso})` : ''}
+              </Tag>
+            )}
+            {networks.length > 0 && (
+              <Tag accent={alignmentTone(networks[0].alignment)}>
+                🚨 {networks[0].network_name}{networks.length > 1 ? ` +${networks.length - 1}` : ''}
+              </Tag>
+            )}
+            {siblings.length > 0 && (
+              <Tag accent={severityTone('high')}>🔁 {siblings.length} simhash sibling{siblings.length === 1 ? '' : 's'}</Tag>
+            )}
+            {accountAge != null && accountAge < 90 && (
+              <Tag accent={severityTone('medium')}>account {accountAge}d old</Tag>
+            )}
             {sourceMatch && <Tag accent={alignmentTone(sourceMatch.alignment)}>{sourceMatch.alignment}</Tag>}
+            {a.lang && <Tag muted>{a.lang.name}</Tag>}
             <span style={statusBadge(s.status)}>{s.status}</span>
             {a.severity_seed && <Tag accent={severityTone(a.severity_seed)}>severity {a.severity_seed}</Tag>}
           </div>
@@ -271,6 +328,17 @@ function SignalCard({ signal: s, canEdit, onChange }: { signal: Signal; canEdit:
             </div>
           )}
           <p style={{ fontSize: 13, color: '#444', margin: '6px 0 0', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{s.raw_text.slice(0, 600)}{s.raw_text.length > 600 ? '…' : ''}</p>
+          {networks.length > 0 && (
+            <div style={{ fontSize: 11, color: '#5a3a99', marginTop: 6, padding: 6, background: '#f5f0ff', borderRadius: 4 }}>
+              {networks.map((nm, i) => (
+                <div key={i}>
+                  <strong>{nm.network_name}</strong>
+                  <span style={{ color: '#666' }}> ({nm.attributed_to})</span>
+                  {' — matched on '}{nm.matched_on.join(', ')}
+                </div>
+              ))}
+            </div>
+          )}
           {(a.entities && (a.entities.persons.length + a.entities.locations.length + a.entities.orgs.length) > 0) && (
             <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
               {a.entities.persons.length > 0 && <span>persons: {a.entities.persons.slice(0, 4).join(', ')} · </span>}
@@ -278,10 +346,24 @@ function SignalCard({ signal: s, canEdit, onChange }: { signal: Signal; canEdit:
               {a.entities.orgs.length > 0 && <span>orgs: {a.entities.orgs.slice(0, 4).join(', ')}</span>}
             </div>
           )}
-          {hints.length > 0 && (
-            <div style={{ fontSize: 11, color: '#5a3a99', marginTop: 4 }}>
-              {hints.map((h, i) => <span key={i}>· {h}{i < hints.length - 1 ? ' ' : ''}</span>)}
+          {o.outbound_domains && o.outbound_domains.length > 0 && (
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+              outbound: {o.outbound_domains.map((d) => {
+                const f = o.domain_findings?.[d];
+                const bits = [];
+                if (f?.ssl_age_days != null) bits.push(`SSL ${f.ssl_age_days}d`);
+                if (f?.whois_country) bits.push(`WHOIS ${f.whois_country}`);
+                return `${d}${bits.length ? ` (${bits.join(', ')})` : ''}`;
+              }).join(' · ')}
             </div>
+          )}
+          {hints.length > 0 && (
+            <details style={{ fontSize: 11, color: '#5a3a99', marginTop: 4 }}>
+              <summary style={{ cursor: 'pointer' }}>{hints.length} origin hint{hints.length === 1 ? '' : 's'}</summary>
+              <ul style={{ paddingLeft: 18, margin: '4px 0 0' }}>
+                {hints.map((h, i) => <li key={i}>{h}</li>)}
+              </ul>
+            </details>
           )}
         </div>
         {canEdit && s.status !== 'reported' && s.status !== 'cleared' && (
@@ -304,6 +386,11 @@ function IngestForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: 
   const [authorName, setAuthorName] = useState('');
   const [postedAt, setPostedAt] = useState('');
   const [text, setText] = useState('');
+  // Slice 15c — origin metadata (Page Transparency etc)
+  const [accountCountry, setAccountCountry] = useState('');
+  const [accountCreatedAt, setAccountCreatedAt] = useState('');
+  const [postingCadenceNote, setPostingCadenceNote] = useState('');
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   async function submit(e: FormEvent) {
@@ -319,6 +406,10 @@ function IngestForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: 
           author_display_name: authorName || undefined,
           posted_at: postedAt ? new Date(postedAt).toISOString() : undefined,
           raw_text: text,
+          account_country: accountCountry || undefined,
+          account_created_at: accountCreatedAt ? new Date(accountCreatedAt).toISOString() : undefined,
+          posting_cadence_note: postingCadenceNote || undefined,
+          profile_photo_url: profilePhotoUrl || undefined,
         }),
       });
       const data = await res.json();
@@ -329,7 +420,7 @@ function IngestForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: 
   return (
     <form onSubmit={submit} style={{ ...cardStyle, marginBottom: 8 }}>
       <p style={{ fontSize: 12, color: '#666', margin: '0 0 8px' }}>
-        First ingest may take 30-60s while the language + NER models cold-load (~280 MB downloaded once into the HuggingFace cache). Cached after that.
+        First ingest may take 30-60s while the NER model cold-loads (~280 MB downloaded once into the HuggingFace cache). Domain forensics (SSL/WHOIS) add up to 6s for posts with outbound URLs. <strong>The Page Transparency country box is the most important field</strong> — copy it from the &ldquo;Page Transparency&rdquo; box on the Page (e.g. &ldquo;Russia&rdquo;, &ldquo;Belarus&rdquo;, &ldquo;Zambia&rdquo;).
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 8 }}>
         <Field label="Platform">
@@ -344,13 +435,34 @@ function IngestForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: 
             <option value="other">Other</option>
           </select>
         </Field>
-        <Field label="Post URL (optional but improves attribution)"><input value={postUrl} onChange={e => setPostUrl(e.target.value)} style={inputStyle} placeholder="https://facebook.com/..." /></Field>
-        <Field label="Posted at (optional)"><input type="datetime-local" value={postedAt} onChange={e => setPostedAt(e.target.value)} style={inputStyle} /></Field>
+        <Field label="Post URL"><input value={postUrl} onChange={e => setPostUrl(e.target.value)} style={inputStyle} placeholder="https://facebook.com/..." /></Field>
+        <Field label="Posted at"><input type="datetime-local" value={postedAt} onChange={e => setPostedAt(e.target.value)} style={inputStyle} /></Field>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
-        <Field label="Author handle"><input value={authorHandle} onChange={e => setAuthorHandle(e.target.value)} style={inputStyle} placeholder="@SputnikAfrica" /></Field>
-        <Field label="Author display name"><input value={authorName} onChange={e => setAuthorName(e.target.value)} style={inputStyle} /></Field>
+        <Field label="Author handle"><input value={authorHandle} onChange={e => setAuthorHandle(e.target.value)} style={inputStyle} placeholder="@AfricaInitiative_news" /></Field>
+        <Field label="Author display name"><input value={authorName} onChange={e => setAuthorName(e.target.value)} style={inputStyle} placeholder="Local Voices Zambia" /></Field>
       </div>
+
+      <fieldset style={{ marginTop: 10, border: '1px solid #d8c8f5', borderRadius: 6, padding: '8px 12px', background: '#fafaff' }}>
+        <legend style={{ fontSize: 12, color: '#5a3a99', padding: '0 6px', fontWeight: 600 }}>📍 Origin metadata (the load-bearing fields)</legend>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <Field label="Page Transparency: admins are based in (the gold)">
+            <input value={accountCountry} onChange={e => setAccountCountry(e.target.value)} style={inputStyle} placeholder="Russia / Belarus / Zambia / South Africa" />
+          </Field>
+          <Field label="Account created at">
+            <input type="datetime-local" value={accountCreatedAt} onChange={e => setAccountCreatedAt(e.target.value)} style={inputStyle} />
+          </Field>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+          <Field label="Posting cadence (your observation)">
+            <input value={postingCadenceNote} onChange={e => setPostingCadenceNote(e.target.value)} style={inputStyle} placeholder="24/7 mechanical, every 11 minutes — bot-like" />
+          </Field>
+          <Field label="Profile photo URL (for reverse-search)">
+            <input value={profilePhotoUrl} onChange={e => setProfilePhotoUrl(e.target.value)} style={inputStyle} />
+          </Field>
+        </div>
+      </fieldset>
+
       <Field label="Post body"><textarea required rows={5} value={text} onChange={e => setText(e.target.value)} style={{ ...inputStyle, fontFamily: 'inherit' }} placeholder="Paste the post text exactly as it appears." /></Field>
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
         <button type="submit" disabled={busy || !text.trim()} style={primaryBtn}>{busy ? 'Analysing…' : 'Ingest + analyse'}</button>
@@ -449,6 +561,137 @@ function AddKeywordForm({ onCancel, onCreated }: { onCancel: () => void; onCreat
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
         <button type="submit" disabled={busy || !term.trim()} style={primaryBtn}>{busy ? 'Saving…' : 'Add keyword'}</button>
+        <button type="button" onClick={onCancel} style={ghostBtn}>Cancel</button>
+        {err && <span style={{ color: '#b00', fontSize: 12 }}>{err}</span>}
+      </div>
+    </form>
+  );
+}
+
+// ─── Known IO networks ────────────────────────────────────────────────────
+
+function NetworksSection({ networks, canEdit, onChange }: { networks: KnownNetwork[]; canEdit: boolean; onChange: (rows: KnownNetwork[]) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
+  return (
+    <section style={{ marginTop: 28 }}>
+      <SectionHeader title="🚨 Documented IO networks" subtitle="Influence operations attributed by named public reports (Stanford, DFRLab, Graphika, Mandiant, Meta). Every signal you ingest is auto-matched against the registry on handle + domain + characteristic-phrase.">
+        {canEdit && <button onClick={() => setAdding(a => !a)} style={ghostBtn}>{adding ? 'Cancel' : '+ Add network'}</button>}
+      </SectionHeader>
+      {adding && canEdit && (
+        <AddNetworkForm onCancel={() => setAdding(false)} onCreated={(n) => { onChange([n, ...networks]); setAdding(false); }} />
+      )}
+      {networks.length === 0 ? <Empty text="No networks registered." /> : (
+        <div style={{ display: 'grid', gap: 6 }}>
+          {networks.map(n => (
+            <div key={n.id} style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <strong style={{ fontSize: 14 }}>{n.name}</strong>
+                  {n.is_default && <Tag muted>default</Tag>}
+                  <Tag accent={alignmentTone(n.alignment)}>{n.alignment}</Tag>
+                  {n.targets_africa && <Tag accent={severityTone('high')}>🌍 Africa-targeted</Tag>}
+                  {n.attribution_country && <Tag muted>{n.attribution_country}</Tag>}
+                  {n.attributed_to && (
+                    <div style={{ fontSize: 12, color: '#444', marginTop: 2 }}>{n.attributed_to}</div>
+                  )}
+                  {n.description && <p style={{ fontSize: 13, color: '#444', margin: '4px 0 0', lineHeight: 1.5 }}>{n.description}</p>}
+                </div>
+                <button onClick={() => setOpenId(openId === n.id ? null : n.id)} style={miniBtn}>
+                  {openId === n.id ? 'Hide' : 'Details'}
+                </button>
+              </div>
+              {openId === n.id && (
+                <div style={{ marginTop: 8, padding: 10, background: '#fafbfc', borderRadius: 6, fontSize: 12 }}>
+                  {n.aliases?.length > 0 && <div>Aliases: {n.aliases.join(', ')}</div>}
+                  {n.known_handles?.length > 0 && <div style={{ marginTop: 4 }}>Known handles: {n.known_handles.join(', ')}</div>}
+                  {n.known_domains?.length > 0 && <div style={{ marginTop: 4 }}>Known domains: {n.known_domains.join(', ')}</div>}
+                  {n.known_phrases?.length > 0 && (
+                    <div style={{ marginTop: 4 }}>Known phrases: {n.known_phrases.map((p) => `"${p}"`).join(', ')}</div>
+                  )}
+                  {n.pattern_notes?.length > 0 && (
+                    <ul style={{ marginTop: 6, paddingLeft: 18 }}>
+                      {n.pattern_notes.map((p, i) => <li key={i}>{p}</li>)}
+                    </ul>
+                  )}
+                  {n.public_reports?.length > 0 && (
+                    <div style={{ marginTop: 6 }}>
+                      Sources: {n.public_reports.map((r, i) => (
+                        <span key={i}>
+                          {i > 0 ? '; ' : ''}
+                          {r.url ? <a href={r.url} target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>{r.publisher} — {r.title} ({r.year})</a> : `${r.publisher} — ${r.title} (${r.year})`}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AddNetworkForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: (n: KnownNetwork) => void }) {
+  const [name, setName] = useState('');
+  const [attributedTo, setAttributedTo] = useState('');
+  const [country, setCountry] = useState('');
+  const [alignment, setAlignment] = useState('cib_network');
+  const [targetsAfrica, setTargetsAfrica] = useState(true);
+  const [description, setDescription] = useState('');
+  const [handles, setHandles] = useState('');
+  const [domains, setDomains] = useState('');
+  const [phrases, setPhrases] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true); setErr(null);
+    try {
+      const res = await fetch('/api/social/networks', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name, attributed_to: attributedTo || undefined,
+          attribution_country: country || undefined,
+          alignment, targets_africa: targetsAfrica,
+          description: description || undefined,
+          known_handles: handles.split(',').map(s => s.trim()).filter(Boolean),
+          known_domains: domains.split(',').map(s => s.trim()).filter(Boolean),
+          known_phrases: phrases.split(',').map(s => s.trim()).filter(Boolean),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      onCreated(data.network);
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
+  return (
+    <form onSubmit={submit} style={{ ...cardStyle, marginBottom: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 8 }}>
+        <Field label="Name"><input required value={name} onChange={e => setName(e.target.value)} style={inputStyle} /></Field>
+        <Field label="Attribution country (ISO)"><input value={country} onChange={e => setCountry(e.target.value)} maxLength={3} style={inputStyle} placeholder="RU / CN" /></Field>
+        <Field label="Alignment">
+          <select value={alignment} onChange={e => setAlignment(e.target.value)} style={inputStyle}>
+            <option value="cib_network">cib_network</option>
+            <option value="state_russia">state_russia</option>
+            <option value="state_china">state_china</option>
+            <option value="state_other">state_other</option>
+            <option value="extremist">extremist</option>
+          </select>
+        </Field>
+      </div>
+      <Field label="Attributed to"><input value={attributedTo} onChange={e => setAttributedTo(e.target.value)} style={inputStyle} placeholder="Russia (Wagner-aligned)" /></Field>
+      <Field label="Description"><textarea rows={2} value={description} onChange={e => setDescription(e.target.value)} style={{ ...inputStyle, fontFamily: 'inherit' }} /></Field>
+      <Field label="Known handles (comma-separated)"><input value={handles} onChange={e => setHandles(e.target.value)} style={inputStyle} placeholder="@africainitiative_news, africaninitiative" /></Field>
+      <Field label="Known domains"><input value={domains} onChange={e => setDomains(e.target.value)} style={inputStyle} placeholder="africaninitiative.com, rrn-news.com" /></Field>
+      <Field label="Known phrases / characteristic vocabulary"><input value={phrases} onChange={e => setPhrases(e.target.value)} style={inputStyle} placeholder="multipolar world, neo-colonial Western" /></Field>
+      <label style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+        <input type="checkbox" checked={targetsAfrica} onChange={e => setTargetsAfrica(e.target.checked)} /> Targets Africa
+      </label>
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <button type="submit" disabled={busy || !name.trim()} style={primaryBtn}>{busy ? 'Saving…' : 'Add network'}</button>
         <button type="button" onClick={onCancel} style={ghostBtn}>Cancel</button>
         {err && <span style={{ color: '#b00', fontSize: 12 }}>{err}</span>}
       </div>
