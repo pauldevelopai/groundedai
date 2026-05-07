@@ -113,18 +113,17 @@ export default function ProductionDetail({
 
   const view = (p.edited_output as Record<string, unknown>) || (p.output as Record<string, unknown>);
 
-  async function assembleAudio() {
+  async function generateRender(format: 'audio_assembly' | 'audiogram' | 'vertical_video') {
     setAssembling(true);
     setError(null);
     try {
       const res = await fetch('/api/producer/productions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ format: 'audio_assembly', source_production_id: p.id }),
+        body: JSON.stringify({ format, source_production_id: p.id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Assembly failed');
-      // The new production's row carries its own asset; reload from server.
+      if (!res.ok) throw new Error(data.error || 'Render failed');
       router.refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -173,47 +172,96 @@ export default function ProductionDetail({
           )}
         </section>
 
-        {/* Audio assembly: button on radio_script productions, player on audio_assembly productions or any with assets */}
-        {(p.format === 'radio_script' || p.format === 'audio_assembly' || assetList.length > 0) && (
+        {/* Render & assets: per-format generate buttons + inline players */}
+        {(p.format === 'radio_script' || p.format === 'video_brief' ||
+          p.format === 'audio_assembly' || p.format === 'audiogram' || p.format === 'vertical_video' ||
+          assetList.length > 0) && (
           <section style={{ background: 'white', border: '1px solid #e5e5e5', borderRadius: 8, padding: 18, marginTop: 16 }}>
             <h2 style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.5, color: '#666', margin: '0 0 10px' }}>
-              Audio
+              Render &amp; preview
             </h2>
-            {p.format === 'radio_script' && canEdit && (
-              <div style={{ marginBottom: 12 }}>
-                <p style={{ fontSize: 13, color: '#444', margin: '0 0 6px' }}>
-                  Assemble this script into a mono WAV. Uses local-only TTS (Piper / espeak-ng / macOS say) and procedural music stings — nothing leaves the machine.
-                </p>
+
+            {canEdit && p.format === 'radio_script' && (
+              <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
-                  onClick={assembleAudio}
+                  onClick={() => generateRender('audio_assembly')}
                   disabled={assembling}
                   style={{ padding: '8px 14px', background: '#0066cc', color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, cursor: 'pointer', opacity: assembling ? 0.5 : 1 }}
                 >
-                  {assembling ? 'Assembling — may take a minute…' : '🔊 Generate audio'}
+                  {assembling ? 'Working…' : '🔊 Generate audio'}
+                </button>
+                <button
+                  onClick={() => generateRender('audiogram')}
+                  disabled={assembling || !assetList.some(a => a.kind === 'audio')}
+                  title={!assetList.some(a => a.kind === 'audio') ? 'Generate audio first' : ''}
+                  style={{ padding: '8px 14px', background: 'white', color: '#0066cc', border: '1px solid #0066cc', borderRadius: 4, fontSize: 13, cursor: 'pointer', opacity: assembling ? 0.5 : 1 }}
+                >
+                  📊 Generate audiogram
                 </button>
               </div>
             )}
 
+            {canEdit && p.format === 'video_brief' && (
+              <div style={{ marginBottom: 12 }}>
+                <p style={{ fontSize: 13, color: '#444', margin: '0 0 6px' }}>
+                  Render the shot list as a 1080×1920 MP4. Uses local-only TTS for voice-over and procedural gradient backgrounds + on-screen text. Replace with real B-roll later by uploading.
+                </p>
+                <button
+                  onClick={() => generateRender('vertical_video')}
+                  disabled={assembling}
+                  style={{ padding: '8px 14px', background: '#0066cc', color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, cursor: 'pointer', opacity: assembling ? 0.5 : 1 }}
+                >
+                  {assembling ? 'Rendering…' : '📱 Generate vertical video'}
+                </button>
+              </div>
+            )}
+
+            {canEdit && p.format === 'audio_assembly' && (
+              <div style={{ marginBottom: 12 }}>
+                <button
+                  onClick={() => generateRender('audiogram')}
+                  disabled={assembling}
+                  style={{ padding: '8px 14px', background: '#0066cc', color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, cursor: 'pointer', opacity: assembling ? 0.5 : 1 }}
+                >
+                  {assembling ? 'Rendering…' : '📊 Generate audiogram'}
+                </button>
+              </div>
+            )}
+
+            {error && <p style={{ color: '#b00', fontSize: 12, margin: '0 0 8px' }}>{error}</p>}
+
             {assetList.length === 0 ? (
-              <p style={{ fontSize: 13, color: '#888', margin: 0 }}>No audio assembled yet.</p>
+              <p style={{ fontSize: 13, color: '#888', margin: 0 }}>No assets generated yet.</p>
             ) : (
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {assetList.filter(a => a.kind === 'audio').map(a => (
+                {assetList.map(a => (
                   <li key={a.id} style={{ padding: '8px 0', borderTop: '1px solid #f0f0f0' }}>
                     <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
-                      {a.format.toUpperCase()}
-                      {a.duration_seconds && <> · {Math.round(a.duration_seconds)}s</>}
-                      {a.bytes && <> · {(a.bytes / 1024).toFixed(0)} KB</>}
+                      <strong style={{ marginRight: 6 }}>{a.kind === 'video' ? (a.format === 'mp4' ? '🎬' : '📽') : '🔊'} {a.kind}/{a.format}</strong>
+                      {a.duration_seconds && <>{Math.round(a.duration_seconds)}s · </>}
+                      {a.bytes ? <>{a.bytes >= 1024 * 1024 ? `${(a.bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(a.bytes / 1024)} KB`}</> : null}
                       {(() => {
-                        const tts = (a.metadata as { segment_log?: Array<{ engine?: string }> }).segment_log;
-                        if (!Array.isArray(tts) || tts.length === 0) return null;
-                        const engines = [...new Set(tts.map(s => s.engine).filter(Boolean))];
-                        return <> · TTS: {engines.join(', ')}</>;
+                        const log = (a.metadata as { segment_log?: Array<{ engine?: string; tts_engine?: string }> }).segment_log;
+                        if (!Array.isArray(log) || log.length === 0) return null;
+                        const engines = [...new Set(log.map(s => s.engine || s.tts_engine).filter(Boolean))];
+                        return engines.length ? <> · TTS: {engines.join(', ')}</> : null;
                       })()}
+                      {(() => {
+                        const cs = (a.metadata as { caption_source?: string }).caption_source;
+                        return cs ? <> · captions: {cs}</> : null;
+                      })()}
+                      {' · '}
+                      <a href={`/api/producer/assets/${a.id}`} target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>download</a>
                     </div>
-                    <audio controls preload="metadata" style={{ width: '100%' }}>
-                      <source src={`/api/producer/assets/${a.id}`} type={a.format === 'wav' ? 'audio/wav' : 'audio/mpeg'} />
-                    </audio>
+                    {a.kind === 'audio' ? (
+                      <audio controls preload="metadata" style={{ width: '100%' }}>
+                        <source src={`/api/producer/assets/${a.id}`} type={a.format === 'wav' ? 'audio/wav' : 'audio/mpeg'} />
+                      </audio>
+                    ) : a.kind === 'video' ? (
+                      <video controls preload="metadata" style={{ width: '100%', maxHeight: 540, background: '#000', borderRadius: 4 }}>
+                        <source src={`/api/producer/assets/${a.id}`} type="video/mp4" />
+                      </video>
+                    ) : null}
                   </li>
                 ))}
               </ul>

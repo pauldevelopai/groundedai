@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentSession } from '@/app/lib/session';
 import { pool } from '@/lib/db';
-const { runProduction, runAudioAssembly } = require('@/lib/agents/producer');
+const { runProduction, runAudioAssembly, runAudiogram, runVerticalVideo } = require('@/lib/agents/producer');
 
 export async function GET(req: Request) {
   const session = await getCurrentSession();
@@ -53,7 +53,9 @@ export async function POST(req: Request) {
     format?: string;
     archive_context?: string;
     source_production_id?: string;
+    source_asset_id?: string;
     language?: string;
+    caption_from_transcript?: boolean;
   };
   try {
     body = await req.json();
@@ -70,6 +72,39 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'source_production_id is required for audio_assembly' }, { status: 400 });
       }
       const result = await runAudioAssembly({
+        sourceProductionId: body.source_production_id,
+        title: body.title,
+        language: body.language || 'en',
+        context: {
+          newsroomId: session.newsroomId,
+          userId: session.userId,
+          endpoint: '/api/producer/productions',
+        },
+      });
+      return NextResponse.json(result, { status: 201 });
+    }
+    if (body.format === 'audiogram') {
+      if (!body.source_production_id && !body.source_asset_id) {
+        return NextResponse.json({ error: 'source_production_id or source_asset_id is required for audiogram' }, { status: 400 });
+      }
+      const result = await runAudiogram({
+        sourceProductionId: body.source_production_id,
+        sourceAssetId: body.source_asset_id,
+        title: body.title,
+        captionFromTranscript: !!body.caption_from_transcript,
+        context: {
+          newsroomId: session.newsroomId,
+          userId: session.userId,
+          endpoint: '/api/producer/productions',
+        },
+      });
+      return NextResponse.json(result, { status: 201 });
+    }
+    if (body.format === 'vertical_video') {
+      if (!body.source_production_id) {
+        return NextResponse.json({ error: 'source_production_id is required for vertical_video' }, { status: 400 });
+      }
+      const result = await runVerticalVideo({
         sourceProductionId: body.source_production_id,
         title: body.title,
         language: body.language || 'en',
