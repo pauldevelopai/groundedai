@@ -31,10 +31,18 @@ export async function POST(req: Request) {
   };
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
   if (!body.name?.trim()) return NextResponse.json({ error: 'name is required' }, { status: 400 });
+  if ('country' in body && body.country && !COUNTRIES.includes(body.country)) {
+    return NextResponse.json({ error: `country must be one of ${COUNTRIES.join(', ')}` }, { status: 400 });
+  }
   const country = body.country && COUNTRIES.includes(body.country) ? body.country : 'other';
-  const score = Number.isFinite(body.credibility_score as number)
-    ? Math.max(0, Math.min(1, body.credibility_score as number))
-    : null;
+  let score: number | null = null;
+  if (body.credibility_score !== null && body.credibility_score !== undefined) {
+    const n = Number(body.credibility_score);
+    if (!Number.isFinite(n) || n < 0 || n > 1) {
+      return NextResponse.json({ error: 'credibility_score must be a number between 0 and 1' }, { status: 400 });
+    }
+    score = n;
+  }
   try {
     const { rows } = await pool.query(
       `INSERT INTO verifier_outlets

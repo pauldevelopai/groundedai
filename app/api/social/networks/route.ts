@@ -33,10 +33,18 @@ export async function POST(req: Request) {
   };
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
   if (!body.name?.trim()) return NextResponse.json({ error: 'name is required' }, { status: 400 });
+  if ('alignment' in body && body.alignment && !ALIGNMENTS.includes(body.alignment)) {
+    return NextResponse.json({ error: `alignment must be one of ${ALIGNMENTS.join(', ')}` }, { status: 400 });
+  }
   const align = body.alignment && ALIGNMENTS.includes(body.alignment) ? body.alignment : 'cib_network';
-  const conf = Number.isFinite(body.confidence as number)
-    ? Math.max(0, Math.min(1, body.confidence as number))
-    : null;
+  let conf: number | null = null;
+  if (body.confidence !== null && body.confidence !== undefined) {
+    const n = Number(body.confidence);
+    if (!Number.isFinite(n) || n < 0 || n > 1) {
+      return NextResponse.json({ error: 'confidence must be a number between 0 and 1' }, { status: 400 });
+    }
+    conf = n;
+  }
   try {
     const { rows } = await pool.query(
       `INSERT INTO social_known_networks

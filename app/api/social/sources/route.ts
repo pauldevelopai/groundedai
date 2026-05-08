@@ -24,11 +24,22 @@ export async function POST(req: Request) {
   let body: { identifier?: string; identifier_kind?: string; display_name?: string; alignment?: string; alignment_confidence?: number; country?: string; notes?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
   if (!body.identifier?.trim()) return NextResponse.json({ error: 'identifier is required' }, { status: 400 });
+  if ('identifier_kind' in body && body.identifier_kind && !ID_KINDS.includes(body.identifier_kind)) {
+    return NextResponse.json({ error: `identifier_kind must be one of ${ID_KINDS.join(', ')}` }, { status: 400 });
+  }
+  if ('alignment' in body && body.alignment && !ALIGNMENTS.includes(body.alignment)) {
+    return NextResponse.json({ error: `alignment must be one of ${ALIGNMENTS.join(', ')}` }, { status: 400 });
+  }
   const ik = body.identifier_kind && ID_KINDS.includes(body.identifier_kind) ? body.identifier_kind : 'domain';
   const align = body.alignment && ALIGNMENTS.includes(body.alignment) ? body.alignment : 'uncategorised';
-  const conf = Number.isFinite(body.alignment_confidence as number)
-    ? Math.max(0, Math.min(1, body.alignment_confidence as number))
-    : null;
+  let conf: number | null = null;
+  if (body.alignment_confidence !== null && body.alignment_confidence !== undefined) {
+    const n = Number(body.alignment_confidence);
+    if (!Number.isFinite(n) || n < 0 || n > 1) {
+      return NextResponse.json({ error: 'alignment_confidence must be a number between 0 and 1' }, { status: 400 });
+    }
+    conf = n;
+  }
   try {
     const { rows } = await pool.query(
       `INSERT INTO social_sources

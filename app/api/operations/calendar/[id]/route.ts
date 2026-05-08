@@ -1,4 +1,4 @@
-// /api/operations/calendar/:id — PATCH update + DELETE.
+// /api/operations/calendar/:id — GET + PATCH update + DELETE.
 
 import { NextResponse } from 'next/server';
 import { getCurrentSession } from '@/app/lib/session';
@@ -12,6 +12,27 @@ const DATETIMES = ['deadline_at', 'scheduled_publish_at'];
 
 const ALLOWED_PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 const ALLOWED_STATUSES = ['idea', 'commissioned', 'in_progress', 'in_review', 'scheduled', 'published', 'killed'];
+
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const session = await getCurrentSession();
+  if (!session) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  const { id } = await ctx.params;
+  if (!UUID_RE.test(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  const { rows } = await pool.query(
+    `SELECT c.*,
+            u.display_name AS assigned_user_name,
+            f.name AS assigned_freelancer_name,
+            cc.name AS assigned_contributor_name
+       FROM editorial_calendar c
+       LEFT JOIN users u ON u.id = c.assigned_user_id
+       LEFT JOIN freelancers f ON f.id = c.assigned_freelancer_id
+       LEFT JOIN community_contributors cc ON cc.id = c.assigned_contributor_id
+      WHERE c.id = $1 AND c.newsroom_id = $2`,
+    [id, session.newsroomId]
+  );
+  if (rows.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  return NextResponse.json({ item: rows[0] });
+}
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const session = await getCurrentSession();
