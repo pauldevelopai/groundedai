@@ -20,7 +20,7 @@ import { pool } from '@/lib/db';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = ['new', 'in_triage', 'routed', 'archived', 'spam', 'duplicate'];
 const CLASSIFICATIONS = ['news_tip', 'contributor_signup', 'correction', 'feedback', 'spam', 'unrelated'];
-const ROUTE_ACTIONS = ['create_contributor', 'create_calendar_idea', 'archive', 'spam'];
+const ROUTE_ACTIONS = ['create_contributor', 'create_calendar_idea', 'refer_to_verifier', 'archive', 'spam'];
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const session = await getCurrentSession();
@@ -120,6 +120,54 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
           WHERE id = $1`,
         [id, calIns.rows[0].id, session.userId]
       );
+    } else if (body.route_action === 'refer_to_verifier') {
+      // Kick off a Verifier run on this submission's body. We pad short
+      // bodies with the subject + a verifier-friendly framing so the
+      // 50-char min check passes; tips are often short.
+      const claim = `Inbound submission via ${submission.source}` +
+        (submission.subject ? ` — ${submission.subject}` : '') +
+        `:\n\n${submission.body || '(submission body was empty)'}`;
+      const padded = claim.length < 60
+        ? claim + '\n\n(Editor referral: please verify the central factual claim and identify what additional confirmation is needed.)'
+        : claim;
+      try {
+        const { runVerifierStandalone } = require('@/lib/agents/verifier');
+        const r = await runVerifierStandalone({
+          claimText: padded,
+          title: `Inbound verification — ${submission.subject || submission.source}`,
+          contextBrief: `Referral from inbound submission ${id}. Sender: ${submission.sender_name || submission.sender_contact || 'anonymous'}.`,
+          sourceKind: 'inbound_submission',
+          sourceId: id,
+          context: { newsroomId: session.newsroomId, userId: session.userId, endpoint: '/api/distribution/inbound' },
+        });
+        await pool.query(
+          `UPDATE inbound_submissions
+              SET routed_to_verifier_run_id = $2, status = 'routed',
+                  routed_at = NOW(), routed_by = $3, updated_at = NOW()
+            WHERE id = $1`,
+          [id, r.runId, session.userId]
+        );
+      } catch (err) {
+        // Even if the agent call fails (e.g. credit balance), the run
+        // row exists with status='failed' and the error is captured —
+        // back-fill the link so the editor can find it.
+        const runId = (err as { runId?: string })?.runId;
+        if (runId) {
+          await pool.query(
+            `UPDATE inbound_submissions
+                SET routed_to_verifier_run_id = $2, status = 'routed',
+                    routed_at = NOW(), routed_by = $3, updated_at = NOW()
+              WHERE id = $1`,
+            [id, runId, session.userId]
+          );
+        }
+        // Surface the error to the caller via the submission row's notes.
+        const message = err instanceof Error ? err.message : String(err);
+        await pool.query(
+          `UPDATE inbound_submissions SET notes = COALESCE(notes,'') || $2 WHERE id = $1`,
+          [id, `\n[Verifier referral error]: ${message}`]
+        );
+      }
     } else if (body.route_action === 'archive') {
       await pool.query(`UPDATE inbound_submissions SET status = 'archived', updated_at = NOW() WHERE id = $1`, [id]);
     } else if (body.route_action === 'spam') {

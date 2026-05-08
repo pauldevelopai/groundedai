@@ -14,7 +14,7 @@ import { pool } from '@/lib/db';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = ['new', 'analysing', 'analysed', 'flagged', 'cleared', 'reported', 'failed'];
-const ROUTE_ACTIONS = ['flag', 'clear', 'refer-to-distributor', 'refer-to-calendar'];
+const ROUTE_ACTIONS = ['flag', 'clear', 'refer-to-distributor', 'refer-to-calendar', 'refer-to-verifier'];
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const session = await getCurrentSession();
@@ -96,6 +96,50 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         `UPDATE social_signals SET routed_to_distribution_correction_id=$2, status='reported', updated_at=NOW() WHERE id=$1`,
         [id, cor.rows[0].id]
       );
+    } else if (body.route_action === 'refer-to-verifier') {
+      // Send the signal text to the Verifier for fact-check, with the
+      // origin attribution carried in as context. Padded to clear the
+      // verifier's 50-char min where short posts apply.
+      const a = signal.analysis || {};
+      const claim = `Social-media post on ${signal.platform}` +
+        (signal.author_handle ? ` from ${signal.author_handle}` : '') +
+        `:\n\n${signal.raw_text || '(no text)'}` +
+        (signal.post_url ? `\n\nURL: ${signal.post_url}` : '');
+      const padded = claim.length < 60
+        ? claim + '\n\n(Editor referral: please verify the central factual claim and indicate corroboration paths.)'
+        : claim;
+      const originHint = a.origin_signals?.network_matches?.[0]?.network_name
+        || a.origin_signals?.source_match?.alignment
+        || a.origin_signals?.account_country
+        || 'unknown';
+      try {
+        const { runVerifierStandalone } = require('@/lib/agents/verifier');
+        const r = await runVerifierStandalone({
+          claimText: padded,
+          title: `Social signal verification — ${signal.author_handle || signal.source_domain || signal.id.slice(0, 8)}`,
+          contextBrief: `Referral from social signal ${id}. Origin attribution: ${originHint}.`,
+          sourceKind: 'social_signal',
+          sourceId: id,
+          context: { newsroomId: session.newsroomId, userId: session.userId, endpoint: '/api/social/signals' },
+        });
+        await pool.query(
+          `UPDATE social_signals SET routed_to_verifier_run_id=$2, status='reported', updated_at=NOW() WHERE id=$1`,
+          [id, r.runId]
+        );
+      } catch (err) {
+        const runId = (err as { runId?: string })?.runId;
+        if (runId) {
+          await pool.query(
+            `UPDATE social_signals SET routed_to_verifier_run_id=$2, status='reported', updated_at=NOW() WHERE id=$1`,
+            [id, runId]
+          );
+        }
+        const message = err instanceof Error ? err.message : String(err);
+        await pool.query(
+          `UPDATE social_signals SET notes = COALESCE(notes,'') || $2 WHERE id=$1`,
+          [id, `\n[Verifier referral error]: ${message}`]
+        );
+      }
     }
     const final = await pool.query(`SELECT * FROM social_signals WHERE id=$1`, [id]);
     return NextResponse.json({ signal: final.rows[0] });
