@@ -1,5 +1,10 @@
-// AudienceWorkspace — three-region UI: personas, signals, focus groups.
-// Functional > polished — same design language as /research and /translation.
+// AudienceWorkspace — analytics + AI query layer (post-2026-05-07).
+// Two regions:
+//   - Analytics signals (the foundation): upload Plausible / Umami / GA / CSV
+//   - Consultations: headline_test / angle_check / analytics_query, all
+//                    grounded in the analytics signals above
+// Synthetic personas + focus-groups are out of scope; their tables remain
+// for backward compat but the UI no longer surfaces them.
 
 'use client';
 
@@ -8,28 +13,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
 
-type Persona = {
-  id: string;
-  name: string;
-  archetype: string;
-  description: string | null;
-  age_range: string | null;
-  location: string | null;
-  languages: string[];
-  device: string | null;
-  reading_habits: string | null;
-  primary_platforms: string[];
-  trust_signals: string | null;
-  interests: string[];
-  source: string;
-  is_default: boolean;
-};
-
 type SignalRow = {
   id: string;
   source: string;
   filename: string | null;
-  signals: { landed_topics?: Array<{ topic: string; evidence: string; why_it_landed: string }>; gaps?: Array<{ topic_or_audience: string; evidence: string; implication: string }>; bounced_stories?: Array<{ headline_or_url: string; drop_off_signal: string; diagnosis: string }>; drift_notes?: string };
+  signals: {
+    landed_topics?: Array<{ topic: string; evidence: string; why_it_landed: string }>;
+    gaps?: Array<{ topic_or_audience: string; evidence: string; implication: string }>;
+    bounced_stories?: Array<{ headline_or_url: string; drop_off_signal: string; diagnosis: string }>;
+    drift_notes?: string;
+  };
   total_pageviews: number | null;
   unique_visitors: number | null;
   analysis_summary: string | null;
@@ -40,44 +33,37 @@ type SignalRow = {
   created_at: string;
 };
 
-type FocusGroupRow = {
+type ConsultationRow = {
   id: string;
   title: string;
-  test_material_kind: 'headline' | 'lede' | 'angle' | 'full_draft';
-  context_brief: string | null;
-  persona_ids: string[];
-  summary: string | null;
-  recommendations: string[];
-  status: 'pending' | 'completed' | 'failed';
+  kind: 'headline_test' | 'angle_check' | 'analytics_query';
+  input_text: string;
+  referenced_signal_ids: string[];
+  status: 'pending' | 'generated' | 'edited' | 'shared' | 'failed';
   duration_ms: number | null;
+  cost_usd: string | number | null;
   error: string | null;
   created_at: string;
+  updated_at: string;
 };
 
-const KIND_LABELS: Record<FocusGroupRow['test_material_kind'], string> = {
-  headline: 'Headline',
-  lede: 'Lede',
-  angle: 'Angle',
-  full_draft: 'Full draft',
+const KIND_LABELS: Record<ConsultationRow['kind'], string> = {
+  headline_test: 'Headline test',
+  angle_check: 'Angle sense-check',
+  analytics_query: 'Analytics query',
 };
 
 export default function AudienceWorkspace({
-  initialPersonas,
-  initialSignals,
-  initialSessions,
-  canEdit,
-  role,
+  initialSignals, initialConsultations, canEdit, role,
 }: {
-  initialPersonas: Persona[];
   initialSignals: SignalRow[];
-  initialSessions: FocusGroupRow[];
+  initialConsultations: ConsultationRow[];
   canEdit: boolean;
   role: 'user' | 'builder' | 'admin';
 }) {
   const router = useRouter();
-  const [personas, setPersonas] = useState(initialPersonas);
   const [signals, setSignals] = useState(initialSignals);
-  const [sessions, setSessions] = useState(initialSessions);
+  const [consultations, setConsultations] = useState(initialConsultations);
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
@@ -107,289 +93,158 @@ export default function AudienceWorkspace({
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px' }}>
         <h1 style={{ margin: 0, fontSize: 24 }}>Audience</h1>
         <p style={{ color: '#666', fontSize: 14, marginTop: 4 }}>
-          Test stories against synthetic personas grounded in your real readers — defaults for low-data, vernacular-first, and feature-phone segments are seeded for every newsroom. Upload analytics to refine and produce actionable editorial signals.
+          Collect analytics across the newsroom and interrogate them. Test a headline, sense-check a story angle, or ask free-form questions about what&apos;s landing, what&apos;s missing, what&apos;s bouncing — every answer grounded in your real past performance.
         </p>
 
-        <PersonasSection personas={personas} canEdit={canEdit} onChange={setPersonas} onRefresh={() => router.refresh()} />
-        <FocusGroupsSection sessions={sessions} personas={personas} onChange={setSessions} />
+        <ConsultationsSection
+          consultations={consultations} signals={signals}
+          canEdit={canEdit}
+          onChange={setConsultations}
+          onRefresh={() => router.refresh()}
+        />
         <SignalsSection signals={signals} canEdit={canEdit} onChange={setSignals} />
       </div>
     </main>
   );
 }
 
-// ─── Personas ──────────────────────────────────────────────────────────────
+// ─── Consultations ─────────────────────────────────────────────────────────
 
-function PersonasSection({
-  personas,
-  canEdit,
-  onChange,
-  onRefresh,
+function ConsultationsSection({
+  consultations, signals, canEdit, onChange, onRefresh,
 }: {
-  personas: Persona[];
+  consultations: ConsultationRow[]; signals: SignalRow[];
   canEdit: boolean;
-  onChange: (next: Persona[]) => void;
+  onChange: (rows: ConsultationRow[]) => void;
   onRefresh: () => void;
 }) {
-  const [showAdd, setShowAdd] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState({
-    name: '',
-    archetype: 'custom',
-    description: '',
-    age_range: '',
-    location: '',
-    languages: '',
-    device: '',
-    reading_habits: '',
-    primary_platforms: '',
-    trust_signals: '',
-    interests: '',
-  });
-
-  function listToArr(s: string) { return s.split(',').map((x) => x.trim()).filter(Boolean); }
-
-  async function onAdd(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/audience/personas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: draft.name.trim(),
-          archetype: draft.archetype.trim() || 'custom',
-          description: draft.description.trim() || null,
-          age_range: draft.age_range.trim() || null,
-          location: draft.location.trim() || null,
-          languages: listToArr(draft.languages),
-          device: draft.device.trim() || null,
-          reading_habits: draft.reading_habits.trim() || null,
-          primary_platforms: listToArr(draft.primary_platforms),
-          trust_signals: draft.trust_signals.trim() || null,
-          interests: listToArr(draft.interests),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Could not add persona');
-        return;
-      }
-      onChange([...personas, data.persona]);
-      setShowAdd(false);
-      setDraft({ name: '', archetype: 'custom', description: '', age_range: '', location: '', languages: '', device: '', reading_habits: '', primary_platforms: '', trust_signals: '', interests: '' });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Network error');
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function onDelete(id: string, name: string) {
-    if (!window.confirm(`Remove "${name}" from your personas?`)) return;
-    const res = await fetch(`/api/audience/personas/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      onChange(personas.filter((p) => p.id !== id));
-      onRefresh();
-    } else {
-      const d = await res.json().catch(() => ({}));
-      setError(d.error || 'Delete failed');
-    }
-  }
-
+  const [creating, setCreating] = useState(false);
   return (
-    <section style={{ background: 'white', border: '1px solid #e5e5e5', borderRadius: 8, padding: 18, marginTop: 16 }}>
+    <section style={{ marginTop: 20 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
-        <h2 style={{ fontSize: 16, margin: 0 }}>Personas ({personas.length})</h2>
+        <div>
+          <h2 style={{ fontSize: 16, margin: 0 }}>📋 Consultations</h2>
+          <p style={{ fontSize: 13, color: '#666', margin: '2px 0 0' }}>
+            Headline tests, angle sense-checks, and analytics queries — all backtested against your newsroom&apos;s past performance.
+          </p>
+        </div>
         {canEdit && (
-          <button onClick={() => setShowAdd((s) => !s)} style={{ padding: '6px 12px', background: showAdd ? 'transparent' : '#111', color: showAdd ? '#666' : '#fff', border: showAdd ? '1px solid #ccc' : 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
-            {showAdd ? 'Cancel' : '+ Add persona'}
+          <button onClick={() => setCreating(c => !c)} style={primaryBtn}>
+            {creating ? 'Cancel' : '+ New consultation'}
           </button>
         )}
       </div>
-      <p style={{ fontSize: 12, color: '#666', margin: '0 0 12px' }}>
-        Defaults for low-data, vernacular-first, and feature-phone readers are auto-seeded for every newsroom — refine them to match your actual audience or add your own.
-      </p>
-
-      {showAdd && canEdit && (
-        <form onSubmit={onAdd} style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: 12, marginBottom: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <input type="text" required placeholder="Name (e.g. Township youth)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} style={textInput} />
-          <input type="text" placeholder="Archetype (e.g. youth)" value={draft.archetype} onChange={(e) => setDraft({ ...draft, archetype: e.target.value })} style={textInput} />
-          <textarea placeholder="Description — who is this reader?" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} rows={2} style={{ ...textInput, gridColumn: '1 / span 2', fontFamily: 'inherit', resize: 'vertical' }} />
-          <input type="text" placeholder="Age range (e.g. 18-24)" value={draft.age_range} onChange={(e) => setDraft({ ...draft, age_range: e.target.value })} style={textInput} />
-          <input type="text" placeholder="Location" value={draft.location} onChange={(e) => setDraft({ ...draft, location: e.target.value })} style={textInput} />
-          <input type="text" placeholder="Languages (comma-separated codes: zu,xh,en)" value={draft.languages} onChange={(e) => setDraft({ ...draft, languages: e.target.value })} style={textInput} />
-          <input type="text" placeholder="Device (e.g. smartphone, feature_phone)" value={draft.device} onChange={(e) => setDraft({ ...draft, device: e.target.value })} style={textInput} />
-          <textarea placeholder="Reading habits" value={draft.reading_habits} onChange={(e) => setDraft({ ...draft, reading_habits: e.target.value })} rows={2} style={{ ...textInput, gridColumn: '1 / span 2', fontFamily: 'inherit', resize: 'vertical' }} />
-          <input type="text" placeholder="Platforms (comma-separated)" value={draft.primary_platforms} onChange={(e) => setDraft({ ...draft, primary_platforms: e.target.value })} style={textInput} />
-          <input type="text" placeholder="Interests (comma-separated)" value={draft.interests} onChange={(e) => setDraft({ ...draft, interests: e.target.value })} style={textInput} />
-          <textarea placeholder="Trust signals — what makes them believe a story?" value={draft.trust_signals} onChange={(e) => setDraft({ ...draft, trust_signals: e.target.value })} rows={2} style={{ ...textInput, gridColumn: '1 / span 2', fontFamily: 'inherit', resize: 'vertical' }} />
-          {error && <p style={{ color: '#b00', fontSize: 12, gridColumn: '1 / span 2', margin: 0 }}>{error}</p>}
-          <button type="submit" disabled={submitting || !draft.name.trim()} style={{ gridColumn: '1 / span 2', padding: '8px 14px', background: '#111', color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, cursor: 'pointer', justifySelf: 'flex-start' }}>
-            {submitting ? 'Adding…' : 'Add persona'}
-          </button>
-        </form>
+      {creating && canEdit && (
+        <NewConsultationForm
+          signalsCount={signals.length}
+          onCancel={() => setCreating(false)}
+          onCreated={(row) => { onChange([row, ...consultations]); setCreating(false); onRefresh(); }}
+        />
       )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
-        {personas.map((p) => (
-          <div key={p.id} style={{ background: 'white', border: '1px solid #e5e5e5', borderRadius: 6, padding: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
-              <strong style={{ fontSize: 14 }}>{p.name}</strong>
-              {p.is_default && <span style={{ fontSize: 10, padding: '1px 6px', background: '#fff8e6', color: '#8a5400', borderRadius: 8 }}>default</span>}
-            </div>
-            <p style={{ fontSize: 12, color: '#666', margin: '0 0 6px' }}>{p.archetype}{p.age_range ? ` · ${p.age_range}` : ''}{p.location ? ` · ${p.location}` : ''}</p>
-            {p.description && <p style={{ fontSize: 12, color: '#444', margin: '0 0 6px', lineHeight: 1.4 }}>{p.description}</p>}
-            <div style={{ fontSize: 11, color: '#666' }}>
-              {p.languages?.length > 0 && <div>Languages: {p.languages.join(', ')}</div>}
-              {p.device && <div>Device: {p.device}</div>}
-              {p.primary_platforms?.length > 0 && <div>Platforms: {p.primary_platforms.join(', ')}</div>}
-            </div>
-            {canEdit && (
-              <button onClick={() => onDelete(p.id, p.name)} style={{ marginTop: 8, background: 'transparent', border: 'none', color: '#b00', fontSize: 11, cursor: 'pointer', padding: 0 }}>remove</button>
-            )}
-          </div>
-        ))}
-      </div>
+      {consultations.length === 0 ? (
+        <Empty text={signals.length === 0
+          ? 'No consultations yet. Upload some analytics in the section below first, then ask a question.'
+          : 'No consultations yet. Click + New consultation to test a headline.'} />
+      ) : (
+        <div style={{ display: 'grid', gap: 8 }}>
+          {consultations.map(c => (
+            <Link key={c.id} href={`/audience/consultations/${c.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div style={{ ...cardStyle, cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <strong style={{ fontSize: 14 }}>{c.title}</strong>
+                    <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+                      {KIND_LABELS[c.kind]} · grounded in {c.referenced_signal_ids.length} signal{c.referenced_signal_ids.length === 1 ? '' : 's'} · {new Date(c.created_at).toLocaleString()}
+                    </div>
+                    <p style={{ fontSize: 13, color: '#444', margin: '6px 0 0', lineHeight: 1.4 }}>
+                      {c.input_text.slice(0, 240)}{c.input_text.length > 240 ? '…' : ''}
+                    </p>
+                  </div>
+                  <span style={statusBadge(c.status)}>{c.status}</span>
+                </div>
+                {c.error && <p style={{ color: '#b00', fontSize: 12, margin: '6px 0 0' }}>{c.error}</p>}
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
-// ─── Focus groups ──────────────────────────────────────────────────────────
+function NewConsultationForm({ signalsCount, onCancel, onCreated }: { signalsCount: number; onCancel: () => void; onCreated: (row: ConsultationRow) => void }) {
+  const [kind, setKind] = useState<ConsultationRow['kind']>('headline_test');
+  const [inputText, setInputText] = useState('');
+  const [contextBrief, setContextBrief] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-function FocusGroupsSection({
-  sessions,
-  personas,
-  onChange,
-}: {
-  sessions: FocusGroupRow[];
-  personas: Persona[];
-  onChange: (next: FocusGroupRow[]) => void;
-}) {
-  const [showNew, setShowNew] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
-  const [title, setTitle] = useState('');
-  const [kind, setKind] = useState<FocusGroupRow['test_material_kind']>('headline');
-  const [material, setMaterial] = useState('');
-  const [brief, setBrief] = useState('');
-  const [selected, setSelected] = useState<string[]>(personas.filter((p) => p.is_default).map((p) => p.id));
-
-  function toggle(id: string) {
-    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-  }
-
-  async function onRun(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
-    setError(null); setInfo(null);
-    setSubmitting(true);
+    setBusy(true); setErr(null);
     try {
-      const res = await fetch('/api/audience/focus-groups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch('/api/audience/consultations', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: title.trim() || undefined,
-          test_material: material.trim(),
-          test_material_kind: kind,
-          context_brief: brief.trim() || undefined,
-          persona_ids: selected,
+          kind, input_text: inputText,
+          context_brief: contextBrief || undefined,
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || 'Focus group failed'); return; }
-      // Refresh the list from server
-      const list = await fetch('/api/audience/focus-groups').then((r) => r.json());
-      onChange(list.sessions || []);
-      setInfo(`Completed in ${(data.durationMs / 1000).toFixed(1)}s · cost $${(data.cost?.costUsd ?? 0).toFixed(4)}`);
-      setMaterial(''); setBrief(''); setTitle('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Network error');
-    } finally {
-      setSubmitting(false);
-    }
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      const list = await fetch('/api/audience/consultations').then(r => r.json());
+      const newest = (list.consultations || []).find((c: ConsultationRow) => c.id === data.consultationId) || list.consultations?.[0];
+      if (newest) onCreated(newest);
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   }
 
+  const placeholders = {
+    headline_test: 'Paste the proposed headline. Example: "Zambia\'s ruling party loses ground in copperbelt by-elections — early results"',
+    angle_check: 'Paste your story angle / lede / framing. Example: "We\'re framing this as the third strike on local copper miners — the angle leans on the long-running tension between FQM and the unions"',
+    analytics_query: 'Type a free-form question. Examples: "What\'s been bouncing this month?" / "Are vernacular pieces landing?" / "Which beat has grown most over the last quarter?"',
+  };
+
   return (
-    <section style={{ background: 'white', border: '1px solid #e5e5e5', borderRadius: 8, padding: 18, marginTop: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
-        <h2 style={{ fontSize: 16, margin: 0 }}>Focus groups ({sessions.length})</h2>
-        <button onClick={() => setShowNew((s) => !s)} style={{ padding: '6px 12px', background: showNew ? 'transparent' : '#0066cc', color: showNew ? '#666' : '#fff', border: showNew ? '1px solid #ccc' : 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
-          {showNew ? 'Cancel' : '+ Run a focus group'}
-        </button>
+    <form onSubmit={submit} style={{ ...cardStyle, marginBottom: 8 }}>
+      {signalsCount === 0 && (
+        <p style={{ fontSize: 12, color: '#8a5400', background: '#fff8e6', padding: 8, borderRadius: 4, margin: '0 0 10px' }}>
+          You haven&apos;t uploaded any analytics yet. The consultation will run, but its grounding will be thin until you give it real data to read.
+        </p>
+      )}
+      <Field label="Consultation kind">
+        <select value={kind} onChange={e => setKind(e.target.value as ConsultationRow['kind'])} style={inputStyle}>
+          <option value="headline_test">Headline test — will this headline land, based on past performance</option>
+          <option value="angle_check">Angle sense-check — how has this kind of angle performed before</option>
+          <option value="analytics_query">Analytics query — free-form question about what&apos;s landing/bouncing/missing</option>
+        </select>
+      </Field>
+      <Field label={kind === 'headline_test' ? 'Headline to test' : kind === 'angle_check' ? 'Story angle to sense-check' : 'Your question'}>
+        <textarea
+          required minLength={4} rows={4}
+          value={inputText}
+          onChange={e => setInputText(e.target.value)}
+          placeholder={placeholders[kind]}
+          style={{ ...inputStyle, fontFamily: 'inherit' }}
+        />
+      </Field>
+      <Field label="Additional context (optional)">
+        <textarea rows={2} value={contextBrief} onChange={e => setContextBrief(e.target.value)} style={{ ...inputStyle, fontFamily: 'inherit' }} placeholder="Draft body, target audience, or anything you want the agent to weigh." />
+      </Field>
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <button type="submit" disabled={busy || inputText.trim().length < 4} style={primaryBtn}>{busy ? 'Generating…' : 'Run consultation'}</button>
+        <button type="button" onClick={onCancel} style={ghostBtn}>Cancel</button>
+        {err && <span style={{ color: '#b00', fontSize: 13 }}>{err}</span>}
       </div>
-      <p style={{ fontSize: 12, color: '#666', margin: '0 0 12px' }}>
-        Test a headline, lede, angle, or full draft against your personas. Each persona reacts in first person; Anchor summarises where the piece lands and recommends specific changes.
-      </p>
-
-      {showNew && (
-        <form onSubmit={onRun} style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: 12, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 8 }}>
-            <select value={kind} onChange={(e) => setKind(e.target.value as FocusGroupRow['test_material_kind'])} style={textInput}>
-              {Object.entries(KIND_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-            <input type="text" placeholder="Session title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} style={textInput} />
-          </div>
-          <textarea required minLength={5} placeholder="What to test (paste the headline / lede / angle / full draft)…" value={material} onChange={(e) => setMaterial(e.target.value)} rows={4} style={{ ...textInput, fontFamily: 'inherit', resize: 'vertical' }} />
-          <textarea placeholder="Editor brief (optional) — what you want stress-tested" value={brief} onChange={(e) => setBrief(e.target.value)} rows={2} style={{ ...textInput, fontFamily: 'inherit', resize: 'vertical' }} />
-          <div>
-            <p style={{ fontSize: 12, color: '#444', margin: '0 0 4px' }}>Pick personas (cap 6)</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {personas.map((p) => {
-                const on = selected.includes(p.id);
-                return (
-                  <button key={p.id} type="button" onClick={() => toggle(p.id)} style={{ fontSize: 12, padding: '5px 10px', background: on ? '#0066cc' : 'white', color: on ? 'white' : '#444', border: `1px solid ${on ? '#0066cc' : '#ccc'}`, borderRadius: 12, cursor: 'pointer' }}>
-                    {p.is_default && '🔸 '}{p.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          {error && <p style={{ color: '#b00', fontSize: 12, margin: 0 }}>{error}</p>}
-          {info && <p style={{ color: '#0a0', fontSize: 12, margin: 0 }}>{info}</p>}
-          <button type="submit" disabled={submitting || !material.trim() || selected.length === 0 || selected.length > 6} style={{ padding: '8px 14px', background: '#0066cc', color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, cursor: submitting ? 'wait' : 'pointer', alignSelf: 'flex-start' }}>
-            {submitting ? 'Running focus group — about 10–20s…' : 'Run focus group'}
-          </button>
-        </form>
-      )}
-
-      {sessions.length === 0 ? (
-        <p style={{ fontSize: 13, color: '#888', margin: 0 }}>No focus groups yet. Run one above to test a piece against your personas.</p>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {sessions.map((s) => (
-            <li key={s.id} style={{ borderTop: '1px solid #f0f0f0', padding: '12px 0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                <Link href={`/audience/focus-groups/${s.id}`} style={{ fontSize: 14, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
-                  {s.title}
-                </Link>
-                <span style={{ fontSize: 11, padding: '2px 8px', background: s.status === 'completed' ? '#e7f6e7' : s.status === 'failed' ? '#ffe6e6' : '#eee', color: s.status === 'completed' ? '#1a5d1a' : s.status === 'failed' ? '#a02020' : '#555', borderRadius: 10 }}>{s.status}</span>
-              </div>
-              <p style={{ fontSize: 12, color: '#666', margin: '4px 0 0' }}>
-                {KIND_LABELS[s.test_material_kind]} · {s.persona_ids.length} persona{s.persona_ids.length === 1 ? '' : 's'}{s.duration_ms ? ` · ${(s.duration_ms / 1000).toFixed(1)}s` : ''} · {new Date(s.created_at).toLocaleString()}
-              </p>
-              {s.summary && <p style={{ fontSize: 13, color: '#333', margin: '6px 0 0', lineHeight: 1.4 }}>{s.summary}</p>}
-              {s.error && <p style={{ fontSize: 12, color: '#b00', marginTop: 4 }}>{s.error}</p>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    </form>
   );
 }
 
-// ─── Signals ───────────────────────────────────────────────────────────────
+// ─── Analytics signals (kept from slice 10) ────────────────────────────────
 
 function SignalsSection({
-  signals,
-  canEdit,
-  onChange,
+  signals, canEdit, onChange,
 }: {
-  signals: SignalRow[];
-  canEdit: boolean;
-  onChange: (next: SignalRow[]) => void;
+  signals: SignalRow[]; canEdit: boolean; onChange: (next: SignalRow[]) => void;
 }) {
   const [showNew, setShowNew] = useState(false);
   const [source, setSource] = useState<'plausible' | 'umami' | 'ga' | 'csv' | 'manual'>('csv');
@@ -405,13 +260,11 @@ function SignalsSection({
     setSubmitting(true);
     try {
       const res = await fetch('/api/audience/signals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source, raw_csv: rawCsv.trim(), filename: filename.trim() || undefined, notes: notes.trim() || undefined }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Upload failed'); return; }
-      // Refresh list
       const list = await fetch('/api/audience/signals').then((r) => r.json());
       onChange(list.signals || []);
       setShowNew(false); setRawCsv(''); setFilename(''); setNotes('');
@@ -423,49 +276,60 @@ function SignalsSection({
   }
 
   return (
-    <section style={{ background: 'white', border: '1px solid #e5e5e5', borderRadius: 8, padding: 18, marginTop: 16 }}>
+    <section style={{ marginTop: 28 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
-        <h2 style={{ fontSize: 16, margin: 0 }}>Analytics signals ({signals.length})</h2>
+        <div>
+          <h2 style={{ fontSize: 16, margin: 0 }}>📈 Analytics signals ({signals.length})</h2>
+          <p style={{ fontSize: 13, color: '#666', margin: '2px 0 0' }}>
+            The foundation for every consultation. Paste an export from Plausible / Umami / GA / a raw CSV — Anchor turns it into editorial signals.
+          </p>
+        </div>
         {canEdit && (
-          <button onClick={() => setShowNew((s) => !s)} style={{ padding: '6px 12px', background: showNew ? 'transparent' : '#111', color: showNew ? '#666' : '#fff', border: showNew ? '1px solid #ccc' : 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={() => setShowNew((s) => !s)} style={ghostBtn}>
             {showNew ? 'Cancel' : '+ Upload analytics'}
           </button>
         )}
       </div>
-      <p style={{ fontSize: 12, color: '#666', margin: '0 0 12px' }}>
-        Paste an export from Plausible, Umami, or Google Analytics. Anchor turns the rows into editorial signals — what landed, what got missed, what bounced — instead of a vanity-metric dump.
-      </p>
 
       {showNew && canEdit && (
-        <form onSubmit={onUpload} style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: 12, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 8 }}>
-            <select value={source} onChange={(e) => setSource(e.target.value as typeof source)} style={textInput}>
-              <option value="csv">CSV (any source)</option>
-              <option value="plausible">Plausible</option>
-              <option value="umami">Umami</option>
-              <option value="ga">Google Analytics</option>
-              <option value="manual">Manual notes</option>
-            </select>
-            <input type="text" placeholder="Filename / period label (optional)" value={filename} onChange={(e) => setFilename(e.target.value)} style={textInput} />
+        <form onSubmit={onUpload} style={{ ...cardStyle, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8 }}>
+            <Field label="Source">
+              <select value={source} onChange={(e) => setSource(e.target.value as typeof source)} style={inputStyle}>
+                <option value="csv">CSV (any source)</option>
+                <option value="plausible">Plausible</option>
+                <option value="umami">Umami</option>
+                <option value="ga">Google Analytics</option>
+                <option value="manual">Manual notes</option>
+              </select>
+            </Field>
+            <Field label="Filename / period label (optional)">
+              <input type="text" value={filename} onChange={(e) => setFilename(e.target.value)} style={inputStyle} />
+            </Field>
           </div>
-          <textarea required minLength={10} placeholder="Paste rows — pageviews, dwell time, bounce rate, top stories, etc." value={rawCsv} onChange={(e) => setRawCsv(e.target.value)} rows={6} style={{ ...textInput, fontFamily: 'monospace', resize: 'vertical' }} />
-          <input type="text" placeholder="Notes for the agent (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} style={textInput} />
-          {error && <p style={{ color: '#b00', fontSize: 12, margin: 0 }}>{error}</p>}
-          <button type="submit" disabled={submitting || rawCsv.trim().length < 10} style={{ padding: '8px 14px', background: '#111', color: '#fff', border: 'none', borderRadius: 4, fontSize: 13, cursor: 'pointer', alignSelf: 'flex-start' }}>
-            {submitting ? 'Analysing…' : 'Upload + analyse'}
-          </button>
+          <Field label="Paste rows / export">
+            <textarea required minLength={10} rows={6} value={rawCsv} onChange={(e) => setRawCsv(e.target.value)} style={{ ...inputStyle, fontFamily: 'ui-monospace, monospace', fontSize: 12 }} placeholder="Pageviews, dwell time, bounce rate, top stories, etc." />
+          </Field>
+          <Field label="Notes for the agent (optional)">
+            <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} style={inputStyle} />
+          </Field>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button type="submit" disabled={submitting || rawCsv.trim().length < 10} style={primaryBtn}>{submitting ? 'Analysing…' : 'Upload + analyse'}</button>
+            <button type="button" onClick={() => setShowNew(false)} style={ghostBtn}>Cancel</button>
+            {error && <span style={{ color: '#b00', fontSize: 12 }}>{error}</span>}
+          </div>
         </form>
       )}
 
       {signals.length === 0 ? (
-        <p style={{ fontSize: 13, color: '#888', margin: 0 }}>No signals uploaded yet.</p>
+        <Empty text="No signals uploaded yet. Click + Upload analytics." />
       ) : (
         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {signals.map((s) => (
-            <li key={s.id} style={{ borderTop: '1px solid #f0f0f0', padding: '10px 0' }}>
+            <li key={s.id} style={{ ...cardStyle, marginBottom: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                <strong style={{ fontSize: 13 }}>{s.filename || s.source}</strong>
-                <span style={{ fontSize: 11, padding: '2px 8px', background: s.status === 'analyzed' ? '#e7f6e7' : s.status === 'failed' ? '#ffe6e6' : '#eee', color: s.status === 'analyzed' ? '#1a5d1a' : s.status === 'failed' ? '#a02020' : '#555', borderRadius: 10 }}>{s.status}</span>
+                <strong style={{ fontSize: 14 }}>{s.filename || s.source}</strong>
+                <span style={statusBadge(s.status)}>{s.status}</span>
               </div>
               <p style={{ fontSize: 11, color: '#666', margin: '4px 0' }}>
                 {s.source} · {new Date(s.created_at).toLocaleString()}
@@ -473,14 +337,31 @@ function SignalsSection({
                 {s.unique_visitors ? ` · ${s.unique_visitors.toLocaleString()} uniques` : ''}
               </p>
               {s.analysis_summary && <p style={{ fontSize: 13, color: '#333', margin: '4px 0 0', lineHeight: 1.4 }}>{s.analysis_summary}</p>}
-              {s.signals?.gaps && s.signals.gaps.length > 0 && (
+              {s.signals?.landed_topics && s.signals.landed_topics.length > 0 && (
                 <details style={{ marginTop: 6 }}>
-                  <summary style={{ fontSize: 12, color: '#666', cursor: 'pointer' }}>Gaps to fill ({s.signals.gaps.length})</summary>
+                  <summary style={{ fontSize: 12, color: '#1a5d1a', cursor: 'pointer' }}>Landed topics ({s.signals.landed_topics.length})</summary>
+                  <ul style={{ paddingLeft: 18, margin: '4px 0', fontSize: 12 }}>
+                    {s.signals.landed_topics.map((t, i) => <li key={i}><strong>{t.topic}</strong>: {t.why_it_landed}</li>)}
+                  </ul>
+                </details>
+              )}
+              {s.signals?.gaps && s.signals.gaps.length > 0 && (
+                <details style={{ marginTop: 4 }}>
+                  <summary style={{ fontSize: 12, color: '#8a5400', cursor: 'pointer' }}>Gaps to fill ({s.signals.gaps.length})</summary>
                   <ul style={{ paddingLeft: 18, margin: '4px 0', fontSize: 12 }}>
                     {s.signals.gaps.map((g, i) => <li key={i}><strong>{g.topic_or_audience}</strong>: {g.implication}</li>)}
                   </ul>
                 </details>
               )}
+              {s.signals?.bounced_stories && s.signals.bounced_stories.length > 0 && (
+                <details style={{ marginTop: 4 }}>
+                  <summary style={{ fontSize: 12, color: '#a02020', cursor: 'pointer' }}>Bounced stories ({s.signals.bounced_stories.length})</summary>
+                  <ul style={{ paddingLeft: 18, margin: '4px 0', fontSize: 12 }}>
+                    {s.signals.bounced_stories.map((b, i) => <li key={i}><strong>{b.headline_or_url}</strong>: {b.diagnosis}</li>)}
+                  </ul>
+                </details>
+              )}
+              {s.signals?.drift_notes && <p style={{ fontSize: 12, color: '#5a3a99', margin: '6px 0 0' }}>{s.signals.drift_notes}</p>}
               {s.error && <p style={{ fontSize: 12, color: '#b00', marginTop: 4 }}>{s.error}</p>}
             </li>
           ))}
@@ -490,11 +371,45 @@ function SignalsSection({
   );
 }
 
-const textInput: React.CSSProperties = {
-  fontSize: 13,
-  padding: 8,
-  border: '1px solid #ccc',
-  borderRadius: 4,
-  boxSizing: 'border-box',
-  width: '100%',
+// ─── Shared ────────────────────────────────────────────────────────────────
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: 'block', marginTop: 4 }}>
+      <div style={{ fontSize: 12, color: '#555', marginBottom: 3 }}>{label}</div>
+      {children}
+    </label>
+  );
+}
+function Empty({ text }: { text: string }) {
+  return <div style={{ padding: 18, background: 'white', border: '1px dashed #d0d0d0', borderRadius: 8, color: '#777', fontSize: 13, textAlign: 'center' }}>{text}</div>;
+}
+const cardStyle: React.CSSProperties = {
+  background: 'white', border: '1px solid #e5e5e5', borderRadius: 8,
+  padding: 12, boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
 };
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '6px 8px', fontSize: 13,
+  border: '1px solid #d0d0d0', borderRadius: 4, fontFamily: 'inherit',
+};
+const primaryBtn: React.CSSProperties = {
+  background: '#0066cc', color: 'white', border: 'none',
+  padding: '6px 14px', borderRadius: 4, fontSize: 13, cursor: 'pointer',
+};
+const ghostBtn: React.CSSProperties = {
+  background: 'white', color: '#0066cc', border: '1px solid #0066cc',
+  padding: '6px 14px', borderRadius: 4, fontSize: 13, cursor: 'pointer',
+};
+
+function statusBadge(status: string): React.CSSProperties {
+  const map: Record<string, { bg: string; fg: string }> = {
+    pending: { bg: '#fff8e6', fg: '#8a5400' },
+    generated: { bg: '#e0f0ff', fg: '#0044aa' },
+    edited: { bg: '#e8e3ff', fg: '#5a3a99' },
+    shared: { bg: '#dbf3f3', fg: '#0a6363' },
+    analyzed: { bg: '#e7f6e7', fg: '#1a5d1a' },
+    failed: { bg: '#ffe6e6', fg: '#a02020' },
+  };
+  const c = map[status] || { bg: '#eee', fg: '#555' };
+  return { fontSize: 11, padding: '2px 8px', borderRadius: 10, background: c.bg, color: c.fg, fontWeight: 500 };
+}

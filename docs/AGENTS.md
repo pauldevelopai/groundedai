@@ -38,7 +38,7 @@ Handles the structural work of grant writing. Keeps a live funder library of the
 
 ## 9. Audience
 
-Reads analytics across the newsroom: what's landing, what's missing, what's bouncing, and where engagement is concentrating. Builds audience clones from the data — synthetic personas grounded in real reader behaviour that newsrooms can interrogate before publishing. Defaults include low-data, vernacular-first, and feature-phone reader segments, so newsrooms reaching rural and township audiences see those readers represented from day one rather than having to prompt for them. Test a headline, sense-check a story angle, see which segments a piece will reach and where it could fail.
+Collects analytics across the newsroom and builds an AI layer over that so you can interrogate what's landing, what's missing, what's bouncing and where engagement is concentrating. Test a headline and sense-check a story angle against what has worked in the past. (Revised 2026-05-07: synthetic personas / focus-group orchestration dropped from the agent's scope. The previous persona machinery from slice 10 is soft-deprecated — tables remain for backward compatibility but the workspace primary surface is now consultations: headline_test, angle_check, analytics_query.)
 
 ## 10. Operations
 

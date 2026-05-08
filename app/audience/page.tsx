@@ -1,22 +1,20 @@
-// /audience — Audience workspace. Three regions: personas (top), signals
-// (middle), focus groups (bottom). Server pre-loads everything; client
-// component handles all the create/edit/delete actions.
-//
-// Personas auto-seed defaults (low-data, vernacular-first, feature-phone)
-// on first load — listPersonas does that under the hood.
+// /audience — Audience workspace, post-2026-05-07 scope refactor.
+// Two primary regions: analytics signals (the foundation) and
+// consultations (headline_test / angle_check / analytics_query — the
+// new primary editor surface). Synthetic personas + focus-groups are
+// soft-deprecated; their tables remain for backward compat but the
+// workspace UI no longer surfaces them.
 
 import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/app/lib/session';
 import { pool } from '@/lib/db';
 import AudienceWorkspace from './AudienceWorkspace';
-const { listPersonas } = require('@/lib/audience/personas');
 
 export default async function AudiencePage() {
   const session = await getCurrentSession();
   if (!session) redirect('/login?next=/audience');
 
-  const [personas, signalsRes, sessionsRes] = await Promise.all([
-    listPersonas(session.newsroomId),
+  const [signalsRes, consultationsRes] = await Promise.all([
     pool.query(
       `SELECT id, source, filename, signals, total_pageviews, unique_visitors,
               analysis_summary, status, cost_usd, duration_ms, error, notes, created_at
@@ -26,9 +24,9 @@ export default async function AudiencePage() {
       [session.newsroomId]
     ),
     pool.query(
-      `SELECT id, title, test_material_kind, context_brief, persona_ids,
-              summary, recommendations, status, duration_ms, cost_usd, error, created_at
-         FROM focus_group_sessions
+      `SELECT id, title, kind, input_text, referenced_signal_ids,
+              status, duration_ms, cost_usd, error, created_at, updated_at
+         FROM audience_consultations
         WHERE newsroom_id = $1
         ORDER BY created_at DESC LIMIT 30`,
       [session.newsroomId]
@@ -38,9 +36,8 @@ export default async function AudiencePage() {
   const canEdit = session.role === 'builder' || session.role === 'admin';
   return (
     <AudienceWorkspace
-      initialPersonas={personas}
       initialSignals={signalsRes.rows}
-      initialSessions={sessionsRes.rows}
+      initialConsultations={consultationsRes.rows}
       canEdit={canEdit}
       role={session.role}
     />
