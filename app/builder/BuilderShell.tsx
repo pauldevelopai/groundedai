@@ -808,6 +808,7 @@ function Inner({
         {currentUser.role === 'admin' && (
           <Link href="/team" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Team →</Link>
         )}
+        <Link href="/learning" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Learning →</Link>
         <Link href="/guide" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Help →</Link>
         <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
           <ExternalToolLinks size="sm" marginLeft={0} />
