@@ -61,7 +61,7 @@ export default function DistBriefDetail({ brief, canEdit }: { brief: Brief; canE
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
       <header style={{ background: 'white', borderBottom: '1px solid #e5e5e5', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Link href="/distribution" style={{ fontSize: 14, color: '#0066cc', textDecoration: 'none' }}>← Distributor</Link>
+        <Link href="/distribution" style={{ fontSize: 14, color: '#0066cc', textDecoration: 'none' }}>← Digital News Gatherer</Link>
         <span style={{ flex: 1 }} />
         <Link href="/run" style={{ fontSize: 13, color: '#0066cc' }}>Run →</Link>
         <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>

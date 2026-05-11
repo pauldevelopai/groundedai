@@ -1,6 +1,6 @@
 export const metadata = {
-  title: 'Anchor',
-  description: 'Newsroom AI platform — GROUNDED, Develop AI',
+  title: 'Grounded',
+  description: 'Newsroom AI platform — Develop AI',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

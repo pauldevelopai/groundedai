@@ -63,10 +63,10 @@ export default async function GuidePage() {
         }}
       >
         <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
-          Anchor
+          Grounded
         </Link>
         <span style={{ color: '#999' }}>/</span>
-        <span style={{ fontSize: 14 }}>How to use Anchor</span>
+        <span style={{ fontSize: 14 }}>How to use Grounded</span>
         <span style={{ flex: 1 }} />
         {session ? (
           <>
@@ -87,16 +87,16 @@ export default async function GuidePage() {
       </header>
 
       <div style={{ maxWidth: 880, margin: '0 auto', padding: '32px 24px 80px', lineHeight: 1.55 }}>
-        <h1 style={{ fontSize: 32, margin: '0 0 8px' }}>How to use Anchor</h1>
+        <h1 style={{ fontSize: 32, margin: '0 0 8px' }}>How to use Grounded</h1>
         <p style={{ fontSize: 16, color: '#444', marginTop: 0 }}>
-          Anchor is shared AI infrastructure for African newsrooms. The newsroom's AI champion <strong>builds workflows</strong> from a set of prebuilt agents. The rest of the team <strong>runs them</strong> from a simple workflow list. This page explains both sides, and details every agent you can drop into a workflow.
+          Grounded is shared AI infrastructure for African newsrooms. The newsroom's AI champion <strong>builds workflows</strong> from a set of prebuilt agents. The rest of the team <strong>runs them</strong> from a simple workflow list. This page explains both sides, and details every agent you can drop into a workflow.
         </p>
 
         <Toc sections={sections} />
 
         <Section id="overview" title="The two modes">
           <p>
-            Anchor has two surfaces. The <Link href="/builder">Builder</Link> is a desktop drag-and-drop canvas where the AI champion composes <em>workflows</em> — graphs of agents that solve a specific newsroom problem. <Link href="/run">User mode</Link> is a simple list of those workflows organised by problem category — journalists pick one, follow on-screen instructions, fill in a form, and get the output. Users never see agents, prompts, or graphs.
+            Grounded has two surfaces. The <Link href="/builder">Builder</Link> is a desktop drag-and-drop canvas where the AI champion composes <em>workflows</em> — graphs of agents that solve a specific newsroom problem. <Link href="/run">User mode</Link> is a simple list of those workflows organised by problem category — journalists pick one, follow on-screen instructions, fill in a form, and get the output. Users never see agents, prompts, or graphs.
           </p>
           <p>
             Workflows are framed as <strong>products solving newsroom problems</strong>. Each one carries a problem statement, a category (Personalisation, Revenue, Production, Delivery, Social media, Audience research, Fact-checking, Translation, Archive, Editorial operations), and step-by-step instructions for the user.
@@ -114,7 +114,7 @@ export default async function GuidePage() {
               <ul>
                 <li><strong>Drag agents from the palette</strong> on the left onto the canvas. Each agent is a node with input handles on its left and output handles on its right.</li>
                 <li>
-                  Or use the yellow <strong>Describe &amp; build</strong> panel: type what the workflow should do (<em>"When a tip comes in, fact-check it against our archive then draft a follow-up tweet"</em>) and Anchor composes the graph for you. You can still edit it manually after.
+                  Or use the yellow <strong>Describe &amp; build</strong> panel: type what the workflow should do (<em>"When a tip comes in, fact-check it against our archive then draft a follow-up tweet"</em>) and Grounded composes the graph for you. You can still edit it manually after.
                 </li>
               </ul>
             </li>
@@ -168,7 +168,7 @@ export default async function GuidePage() {
 
         <Section id="ecosystem" title="The Develop AI ecosystem">
           <p>
-            Anchor isn't the whole picture. It sits inside Develop AI's wider toolset, and every page links to its sister apps in the top-right of the menu. They\'re separate products with their own logins for now (single sign-on is on the roadmap).
+            Grounded isn't the whole picture. It sits inside Develop AI's wider toolset, and every page links to its sister apps in the top-right of the menu. They\'re separate products with their own logins for now (single sign-on is on the roadmap).
           </p>
           {EXTERNAL_TOOLS.map((tool) => (
             <div key={tool.slug} style={{ background: 'white', border: '1px solid #e5e5e5', borderRadius: 8, padding: 14, marginTop: 12 }}>

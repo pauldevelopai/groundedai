@@ -1,5 +1,5 @@
-// External Develop AI tools that live alongside Anchor in the menu.
-// These are separate apps with their own auth and data — Anchor only
+// External Develop AI tools that live alongside Grounded in the menu.
+// These are separate apps with their own auth and data — Grounded only
 // links to them. SSO + content sharing is a future slice (see HANDOFF
 // integration plan).
 //
@@ -35,6 +35,6 @@ export const EXTERNAL_TOOLS: ExternalTool[] = [
     icon: '🌍',
     url: 'https://www.grounded.developai.co.za',
     description:
-      "Develop AI's data practice. Anchor sits inside this umbrella, alongside Tracker, Awareness, MediaMap, and the training cohorts.",
+      "Develop AI's data practice. Grounded sits inside this umbrella, alongside Tracker, Awareness, MediaMap, and the training cohorts.",
   },
 ];

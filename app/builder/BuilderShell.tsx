@@ -739,7 +739,7 @@ function Inner({
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'system-ui, sans-serif' }}>
       {/* Header */}
       <header style={{ borderBottom: '1px solid #e5e5e5', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, background: '#fafafa', minHeight: 52 }}>
-        <strong style={{ fontSize: 15 }}>Anchor</strong>
+        <strong style={{ fontSize: 15 }}>Grounded</strong>
         <span style={{ color: '#999' }}>/</span>
         <span style={{ fontSize: 14 }}>Builder</span>
         <span style={{ flex: 1 }} />
@@ -799,12 +799,12 @@ function Inner({
         <Link href="/verifier" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Verifier →</Link>
         <Link href="/research" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Research →</Link>
         <Link href="/translation" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Translator →</Link>
-        <Link href="/producer" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Producer →</Link>
-        <Link href="/audience" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Audience →</Link>
+        <Link href="/producer" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Audio & Video Producer →</Link>
+        <Link href="/audience" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Audience Analytics Manager →</Link>
         <Link href="/fundraiser" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Fundraiser →</Link>
-        <Link href="/operations" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Operations →</Link>
-        <Link href="/distribution" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Distributor →</Link>
-        <Link href="/social" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Social →</Link>
+        <Link href="/operations" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Operations Manager →</Link>
+        <Link href="/distribution" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Digital News Gatherer →</Link>
+        <Link href="/social" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Social media listener →</Link>
         {currentUser.role === 'admin' && (
           <Link href="/team" style={{ fontSize: 12, color: '#0066cc', marginLeft: 8 }}>Team →</Link>
         )}
@@ -1367,7 +1367,7 @@ function WorkflowPanel({
           <p style={{ fontSize: 12, color: '#6b5800', margin: '0 0 8px' }}>
             {hasNodes
               ? 'Replace the current canvas with a workflow generated from your description.'
-              : 'Type what this workflow should do and Anchor will compose it for you.'}
+              : 'Type what this workflow should do and Grounded will compose it for you.'}
           </p>
           <textarea
             value={genPrompt}

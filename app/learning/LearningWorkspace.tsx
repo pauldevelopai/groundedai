@@ -80,16 +80,16 @@ export default function LearningWorkspace({
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
       <header style={{ background: 'white', borderBottom: '1px solid #e5e5e5', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Anchor</Link>
+        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Grounded</Link>
         <span style={{ color: '#999' }}>/</span>
         <span style={{ fontSize: 14 }}>📚 Learning</span>
         <span style={{ flex: 1 }} />
         <Link href="/run" style={{ fontSize: 13, color: '#0066cc' }}>Run →</Link>
         <Link href="/verifier" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Verifier →</Link>
-        <Link href="/audience" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audience →</Link>
-        <Link href="/operations" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Operations →</Link>
-        <Link href="/distribution" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Distributor →</Link>
-        <Link href="/social" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Social →</Link>
+        <Link href="/audience" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audience Analytics Manager →</Link>
+        <Link href="/operations" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Operations Manager →</Link>
+        <Link href="/distribution" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Digital News Gatherer →</Link>
+        <Link href="/social" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Social media listener →</Link>
         {(role === 'builder' || role === 'admin') && (
           <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
         )}
@@ -333,7 +333,7 @@ function CohortSection({ metrics }: { metrics: Metrics }) {
           ]}
         />
         <DetailCard
-          label="Distributor sends"
+          label="Outbound sends"
           rows={[
             ['Sends (30d)', metrics.distribution.sends_30d],
             ...metrics.distribution.by_status.map(r => [`status: ${r.status}`, r.n]) as Array<[string, number]>,

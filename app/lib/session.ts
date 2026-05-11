@@ -1,4 +1,4 @@
-// Reads the Anchor session cookie and verifies it. Returns the decoded session
+// Reads the Grounded session cookie and verifies it. Returns the decoded session
 // claims ({ userId, newsroomId, role }) or null if no/invalid token.
 // Use this from server components and route handlers to gate access.
 

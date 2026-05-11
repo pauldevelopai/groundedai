@@ -62,19 +62,19 @@ export default function VerifierWorkspace({
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
       <header style={{ background: 'white', borderBottom: '1px solid #e5e5e5', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Anchor</Link>
+        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Grounded</Link>
         <span style={{ color: '#999' }}>/</span>
         <span style={{ fontSize: 14 }}>🛡 Verifier</span>
         <span style={{ flex: 1 }} />
         <Link href="/run" style={{ fontSize: 13, color: '#0066cc' }}>Run →</Link>
         <Link href="/research" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Research →</Link>
         <Link href="/translation" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Translator →</Link>
-        <Link href="/producer" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Producer →</Link>
-        <Link href="/audience" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audience →</Link>
+        <Link href="/producer" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audio & Video Producer →</Link>
+        <Link href="/audience" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audience Analytics Manager →</Link>
         <Link href="/fundraiser" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Fundraiser →</Link>
-        <Link href="/operations" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Operations →</Link>
-        <Link href="/distribution" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Distributor →</Link>
-        <Link href="/social" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Social →</Link>
+        <Link href="/operations" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Operations Manager →</Link>
+        <Link href="/distribution" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Digital News Gatherer →</Link>
+        <Link href="/social" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Social media listener →</Link>
         {(role === 'builder' || role === 'admin') && (
           <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
         )}
@@ -88,7 +88,7 @@ export default function VerifierWorkspace({
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px' }}>
         <h1 style={{ margin: 0, fontSize: 24 }}>Verifier</h1>
         <p style={{ color: '#666', fontSize: 14, marginTop: 4 }}>
-          Multi-source claim verification with an Africa-grounded credibility map (SA / ZW / ZM / KE outlets seeded by default; editable). Inbound submissions from Distributor and flagged social-media signals can be referred here for fact-check; the credibility map weights sources automatically when URLs are present.
+          Multi-source claim verification with an Africa-grounded credibility map (SA / ZW / ZM / KE outlets seeded by default; editable). Inbound submissions from the Digital News Gatherer and flagged social-media signals can be referred here for fact-check; the credibility map weights sources automatically when URLs are present.
         </p>
 
         <RunsSection runs={runs} canEdit={canEdit} onChange={setRuns} onRefresh={() => router.refresh()} />

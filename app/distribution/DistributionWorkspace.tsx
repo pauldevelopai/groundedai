@@ -95,19 +95,19 @@ export default function DistributionWorkspace({
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
       <header style={{ background: 'white', borderBottom: '1px solid #e5e5e5', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Anchor</Link>
+        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Grounded</Link>
         <span style={{ color: '#999' }}>/</span>
-        <span style={{ fontSize: 14 }}>📡 Distributor</span>
+        <span style={{ fontSize: 14 }}>📡 Digital News Gatherer</span>
         <span style={{ flex: 1 }} />
         <Link href="/run" style={{ fontSize: 13, color: '#0066cc' }}>Run →</Link>
         <Link href="/verifier" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Verifier →</Link>
         <Link href="/research" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Research →</Link>
         <Link href="/translation" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Translator →</Link>
-        <Link href="/producer" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Producer →</Link>
-        <Link href="/audience" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audience →</Link>
+        <Link href="/producer" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audio & Video Producer →</Link>
+        <Link href="/audience" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audience Analytics Manager →</Link>
         <Link href="/fundraiser" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Fundraiser →</Link>
-        <Link href="/operations" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Operations →</Link>
-        <Link href="/social" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Social →</Link>
+        <Link href="/operations" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Operations Manager →</Link>
+        <Link href="/social" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Social media listener →</Link>
         {(role === 'builder' || role === 'admin') && (
           <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
         )}
@@ -119,7 +119,7 @@ export default function DistributionWorkspace({
       </header>
 
       <div style={{ maxWidth: 1180, margin: '0 auto', padding: '24px 20px' }}>
-        <h1 style={{ margin: 0, fontSize: 24 }}>Distributor</h1>
+        <h1 style={{ margin: 0, fontSize: 24 }}>Digital News Gatherer</h1>
         <p style={{ color: '#666', fontSize: 14, marginTop: 4 }}>
           Two-way: triage incoming tips and submissions on the way IN; publish approved pieces across configured channels on the way OUT. Per-newsroom credentials are encrypted at rest with AES-256-GCM. Pilot uses simulated dispatch — nothing leaves the machine until real per-channel adapters are wired in.
         </p>
@@ -160,7 +160,7 @@ function BriefsSection({
   const [creating, setCreating] = useState(false);
   return (
     <section style={{ marginTop: 20 }}>
-      <SectionHeader title="📋 Distributor briefs" subtitle="Agent-generated triage / publishing-plan / correction-draft outputs.">
+      <SectionHeader title="📋 News Gatherer briefs" subtitle="Agent-generated triage / publishing-plan / correction-draft outputs.">
         {canEdit && <button onClick={() => setCreating(c => !c)} style={primaryBtn}>{creating ? 'Cancel' : '+ New brief'}</button>}
       </SectionHeader>
       {creating && canEdit && (
@@ -685,7 +685,7 @@ function CorrectionsSection({
   const [adding, setAdding] = useState(false);
   return (
     <section style={{ marginTop: 28 }}>
-      <SectionHeader title="✍ Corrections" subtitle="Open a correction against a published piece — Anchor finds every send it went through and seeds per-channel propagation rows.">
+      <SectionHeader title="✍ Corrections" subtitle="Open a correction against a published piece — Grounded finds every send it went through and seeds per-channel propagation rows.">
         {canEdit && <button onClick={() => setAdding(a => !a)} style={ghostBtn}>{adding ? 'Cancel' : '+ Open correction'}</button>}
       </SectionHeader>
       {adding && canEdit && (

@@ -96,20 +96,20 @@ export default function ProducerIndex({
           gap: 12,
         }}
       >
-        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Anchor</Link>
+        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Grounded</Link>
         <span style={{ color: '#999' }}>/</span>
-        <span style={{ fontSize: 14 }}>🎬 Producer</span>
+        <span style={{ fontSize: 14 }}>🎬 Audio & Video Producer</span>
         <span style={{ flex: 1 }} />
         <Link href="/run" style={{ fontSize: 13, color: '#0066cc' }}>Run →</Link>
         <Link href="/newsroom" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Profile →</Link>
         <Link href="/verifier" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Verifier →</Link>
         <Link href="/research" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Research →</Link>
         <Link href="/translation" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Translator →</Link>
-        <Link href="/audience" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audience →</Link>
+        <Link href="/audience" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audience Analytics Manager →</Link>
         <Link href="/fundraiser" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Fundraiser →</Link>
-        <Link href="/operations" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Operations →</Link>
-        <Link href="/distribution" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Distributor →</Link>
-        <Link href="/social" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Social →</Link>
+        <Link href="/operations" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Operations Manager →</Link>
+        <Link href="/distribution" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Digital News Gatherer →</Link>
+        <Link href="/social" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Social media listener →</Link>
         {(role === 'builder' || role === 'admin') && (
           <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
         )}
@@ -133,7 +133,7 @@ export default function ProducerIndex({
           )}
         </div>
         <p style={{ color: '#666', fontSize: 14, marginTop: 0 }}>
-          Producer turns articles into broadcast-ready scripts, podcast outlines, and video briefs — written in your newsroom&apos;s voice (from your <Link href="/newsroom" style={{ color: '#0066cc' }}>profile</Link>). Open any radio script and click <strong>Generate audio</strong> to assemble it into a WAV using local-only TTS + procedural music stings. Vertical video and audiograms land in Slice 13.
+          The Audio &amp; Video Producer turns articles into broadcast-ready scripts, podcast outlines, and video briefs — written in your newsroom&apos;s voice (from your <Link href="/newsroom" style={{ color: '#0066cc' }}>profile</Link>). Open any radio script and click <strong>Generate audio</strong> to assemble it into a WAV using local-only TTS + procedural music stings. Audiograms and vertical video also live here.
         </p>
 
         {canCreate && <TranscribePanel />}
@@ -154,7 +154,7 @@ export default function ProducerIndex({
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13 }}>
               <span style={{ color: '#444' }}>Source article</span>
-              <textarea value={sourceText} onChange={(e) => setSourceText(e.target.value)} rows={6} required minLength={30} placeholder="Paste the article, brief, or transcript Producer should work from." style={{ padding: 8, fontSize: 14, border: '1px solid #ccc', borderRadius: 4, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
+              <textarea value={sourceText} onChange={(e) => setSourceText(e.target.value)} rows={6} required minLength={30} placeholder="Paste the article, brief, or transcript the Audio & Video Producer should work from." style={{ padding: 8, fontSize: 14, border: '1px solid #ccc', borderRadius: 4, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
             </label>
             {error && <p style={{ color: '#b00', fontSize: 13, margin: 0 }}>{error}</p>}
             <button type="submit" disabled={submitting || sourceText.trim().length < 30} style={{ padding: '10px 14px', background: '#0066cc', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer', opacity: submitting ? 0.5 : 1, alignSelf: 'flex-start' }}>

@@ -15,7 +15,7 @@ export default async function Home() {
 
   return (
     <main style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 720, margin: '60px auto' }}>
-      <h1 style={{ marginTop: 0 }}>Anchor</h1>
+      <h1 style={{ marginTop: 0 }}>Grounded</h1>
       <p style={{ color: '#444', fontSize: 15 }}>
         Shared AI infrastructure for African newsrooms. Compose AI workflows from prebuilt agents; run them from a simple workflow list.
       </p>

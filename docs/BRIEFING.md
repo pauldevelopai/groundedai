@@ -6,11 +6,11 @@
 
 ## WHAT THIS BRIEFING IS FOR
 
-You are building Anchor in a fresh directory. New project. Fresh git repo (initialise it yourself; do not copy a .git folder from anywhere). Build incrementally with confirmation at each stage, the same way Paul works on Surepath.
+You are building Grounded in a fresh directory. New project. Fresh git repo (initialise it yourself; do not copy a .git folder from anywhere). Build incrementally with confirmation at each stage, the same way Paul works on Surepath.
 
 Past infrastructure exists across several of Paul's codebases. Reference it where useful — to lift battle-tested code, to copy schemas, to reuse patterns. Don't reinvent what already works. But don't refactor anything that's currently in production.
 
-The deliverable is a working Anchor MVP that the pilot ZimZam newsrooms can use. Not a report. Not a scaffold. Working software, shipped in confirmed steps.
+The deliverable is a working Grounded MVP that the pilot ZimZam newsrooms can use. Not a report. Not a scaffold. Working software, shipped in confirmed steps.
 
 Read this whole document before starting. Ask the questions at the bottom before touching code.
 
@@ -18,14 +18,14 @@ Read this whole document before starting. Ask the questions at the bottom before
 
 ## WHAT ANCHOR IS
 
-Anchor is a web platform for African newsrooms. It is the flagship of GROUNDED, which is Develop AI's practice on data — both harnessing newsroom data and defending against data exploitation.
+Grounded is a web platform for African newsrooms. It is the flagship of GROUNDED, which is Develop AI's practice on data — both harnessing newsroom data and defending against data exploitation.
 
-Anchor combines two things in one product:
+Grounded combines two things in one product:
 
-1. **An agent execution layer.** Newsrooms use it to run AI workflows against their own content — verifying material, archiving stories, drafting outputs. Three MVP agents: Verifier, Archivist, Drafter.
+1. **An agent execution layer.** Newsrooms use it to run AI workflows against their own content — verifying material, archiving stories, drafting outputs. Three MVP agents: Verifier, Archivist, Copywriter.
 2. **A governance layer.** This encodes Paul's methodology for ethical, jurisdiction-aware AI implementation. POPIA. Zimbabwe Cyber and Data Protection Act. Zambia Cyber Security Act. Press codes. Donor compliance. Tool evaluation frameworks.
 
-The agent layer is what newsrooms touch every day. The governance layer is what makes Anchor different from any other workflow tool — it knows where each newsroom is, what laws apply, what their funders require, and flags issues before they become incidents.
+The agent layer is what newsrooms touch every day. The governance layer is what makes Grounded different from any other workflow tool — it knows where each newsroom is, what laws apply, what their funders require, and flags issues before they become incidents.
 
 ### WHO IT IS FOR
 
@@ -37,13 +37,13 @@ Independent African newsrooms. The pilot is the five ZimZam newsrooms, all simul
 - Maricho Media (Zimbabwe)
 - VicFallsLive (Zimbabwe)
 
-After the pilot, Anchor scales to other Develop AI training cohorts and to TRF / DW Akademie / IMS programme partners.
+After the pilot, Grounded scales to other Develop AI training cohorts and to TRF / DW Akademie / IMS programme partners.
 
 ### WHERE IT SITS IN THE PORTFOLIO
 
 Develop AI is the umbrella company.
 GROUNDED is one practice under Develop AI — the data practice.
-GROUNDED has five expressions: Anchor (this), Tracker (live), Awareness (data exploitation defence in SA schools), MediaMap (research mapping every Develop AI-trained newsroom), and training cohorts.
+GROUNDED has five expressions: Grounded (this), Tracker (live), Awareness (data exploitation defence in SA schools), MediaMap (research mapping every Develop AI-trained newsroom), and training cohorts.
 Surepath sits separately under Develop AI, not under GROUNDED. Don't confuse the two.
 
 ---
@@ -64,14 +64,14 @@ Three to ship first. The product can grow agents later but the MVP is these thre
 
 - **Verifier.** Fact-checks claims in submitted material. Flags AI-generated content. Cross-references against the newsroom's own archive and trusted external sources. Outputs a verification report with confidence indicators.
 - **Archivist.** Ingests the newsroom's existing material into a searchable knowledge base (RAG). Tags, indexes, makes retrievable. Lets the newsroom answer "have we covered this before, and what did we say". The archive is per-newsroom and private to that newsroom.
-- **Drafter.** Assists with drafting under editorial oversight. Social copy. Newsletter blurbs. Headline alternatives. Translation to local languages. Always positioned as draft-only — the newsroom signs off.
+- **Copywriter.** Assists with drafting under editorial oversight. Social copy. Newsletter blurbs. Headline alternatives. Translation to local languages. Always positioned as draft-only — the newsroom signs off.
 
 ### SLUGS AND AGENT SETS
 
 A slug is an agent set — a named bundle of agents configured for a specific use case. Example slugs:
 
-- "Election coverage" slug = Verifier configured for political claims + Archivist scoped to election coverage + Drafter set to formal news register
-- "Investigative" slug = Verifier with stronger source-checking + Archivist with broader date range + Drafter set to long-form
+- "Election coverage" slug = Verifier configured for political claims + Archivist scoped to election coverage + Copywriter set to formal news register
+- "Investigative" slug = Verifier with stronger source-checking + Archivist with broader date range + Copywriter set to long-form
 
 The builder composes slugs. The user picks a slug for their task.
 
@@ -132,9 +132,9 @@ JusticePro and SmartGuard are parked products and not in scope. If you find code
 
 ## INTEGRATIONS (DECIDED 2026-05-04)
 
-Anchor is NOT standalone. It works in unison with:
+Grounded is NOT standalone. It works in unison with:
 
-- **Airtable** (Develop AI base, `app4FVlF4AAy8Q8s2`) — read newsroom directory ON DEMAND from `Newsrooms` table; write Activity Log rows with `Stream=Anchor` for high-signal events. Postgres holds the full forensic audit log; Activity Log gets summary rows only.
+- **Airtable** (Develop AI base, `app4FVlF4AAy8Q8s2`) — read newsroom directory ON DEMAND from `Newsrooms` table; write Activity Log rows with `Stream=Grounded` for high-signal events. Postgres holds the full forensic audit log; Activity Log gets summary rows only.
 - **Google Drive** — methodology + jurisdiction packs ingested into governance RAG. Newsroom uploads stored in S3 (primary) AND mirrored to Drive per-newsroom folder.
 
 ---
@@ -144,20 +144,20 @@ Anchor is NOT standalone. It works in unison with:
 Paul has multiple existing codebases. Treat all of them as **read-only references** during the build. If you want to extract code from a live codebase into a shared module, propose it explicitly and wait for Paul's go-ahead.
 
 - **SUREPATH (live — do not modify).** Repo: github.com/pauldevelopai/surepath. Hosted: AWS Lightsail (`surepath-prod`, `af-south-1`). Has working, production-tested versions of: Claude API wrapper with retry logic, RAG infrastructure, Claude Vision integration with WHY chain reasoning, PostgreSQL pool/schema patterns, Twilio/WhatsApp webhook handler, AWS S3 file storage, admin dashboard, webhook handler patterns, cost/usage logging.
-- **ZIMZAM NEEDS ASSESSMENT TOOLS (local).** Output documents (per-newsroom assessments) are more valuable than the code — they describe each newsroom's context, constraints, and AI priorities, and feed directly into how Anchor is configured per pilot newsroom. Located on Drive (5 numbered .docx files: 1_Capital_FM, 2_EnviroPress, 3_MakanDay, 4_Maricho_Media, 5_VicFallsLive).
+- **ZIMZAM NEEDS ASSESSMENT TOOLS (local).** Output documents (per-newsroom assessments) are more valuable than the code — they describe each newsroom's context, constraints, and AI priorities, and feed directly into how Grounded is configured per pilot newsroom. Located on Drive (5 numbered .docx files: 1_Capital_FM, 2_EnviroPress, 3_MakanDay, 4_Maricho_Media, 5_VicFallsLive).
 - **HOLLY (Node + Express + React, on disk).** The auth model and Postgres schema are the most likely things to draw from. Also: googleapis usage pattern, background-jobs queue.
 - **OTHER LOCAL PROTOTYPES.** Paul will point you to anything relevant.
-- **TRACKER PROTOTYPES (possibly local).** Tracker is a separate live GROUNDED product. Earlier prototypes may inform Anchor's compliance/regulation tracking.
+- **TRACKER PROTOTYPES (possibly local).** Tracker is a separate live GROUNDED product. Earlier prototypes may inform Grounded's compliance/regulation tracking.
 
 ### CATEGORIES OF REUSE
 
 Classify every reuse before lifting:
 
-1. **LIFT-AS-IS.** Code that copies into Anchor with minimal modification.
-2. **EXTRACT TO SHARED MODULE.** Code currently inside Surepath that should become a shared library both Surepath and Anchor depend on. Requires coordinating with Surepath's deployment — flag and wait for Paul's go-ahead.
-3. **REFERENCE / METHODOLOGY.** Approaches Anchor should adopt where the actual lines won't carry across.
+1. **LIFT-AS-IS.** Code that copies into Grounded with minimal modification.
+2. **EXTRACT TO SHARED MODULE.** Code currently inside Surepath that should become a shared library both Surepath and Grounded depend on. Requires coordinating with Surepath's deployment — flag and wait for Paul's go-ahead.
+3. **REFERENCE / METHODOLOGY.** Approaches Grounded should adopt where the actual lines won't carry across.
 4. **SCHEMAS / DATA.** Database schemas, JSON shapes, RAG document structures.
-5. **METHODOLOGY ASSETS.** Non-code: ZimZam needs assessments, GROUNDED methodology docs, jurisdiction compliance research, ethical AI frameworks. These become Anchor's RAG knowledge base.
+5. **METHODOLOGY ASSETS.** Non-code: ZimZam needs assessments, GROUNDED methodology docs, jurisdiction compliance research, ethical AI frameworks. These become Grounded's RAG knowledge base.
 
 For each significant reuse, log it briefly in `REUSE.md` so Paul can see what was lifted from where.
 
@@ -177,10 +177,10 @@ For each significant reuse, log it briefly in `REUSE.md` so Paul can see what wa
 Fresh directory. Fresh git repo. Step-by-step with confirmation at each step. Same way Paul works on Surepath.
 
 - **Step 0.** Set up. Create directory, git init, npm init, .env, .gitignore, README. *(Done 2026-05-04.)*
-- **Step 1.** Walk through past infrastructure. Locate each codebase. Read the high-value ones (Surepath, ZimZam tools, Holly). Build a mental model of what's reusable. No Anchor code yet.
+- **Step 1.** Walk through past infrastructure. Locate each codebase. Read the high-value ones (Surepath, ZimZam tools, Holly). Build a mental model of what's reusable. No Grounded code yet.
 - **Step 2.** Confirm core architecture decisions. *(Most done 2026-05-04 — Next.js hybrid, Postgres, roll-our-own auth, new Lightsail later, Airtable + Drive integration.)*
 - **Step 3.** Build the multi-tenancy backbone. Schema for newsrooms, users, content scoping, audit log. The architectural commitment everything else depends on.
-- **Step 4.** Build the agent execution layer. One agent at a time. Verifier first (smallest), then Archivist (RAG-heavy), then Drafter.
+- **Step 4.** Build the agent execution layer. One agent at a time. Verifier first (smallest), then Archivist (RAG-heavy), then Copywriter.
 - **Step 5.** Builder mode and user mode UIs in parallel with the agents. Function over form.
 - **Step 6.** Workflow library. Per-newsroom workflows first. Then cross-newsroom shared library with attribution (flat, no moderation in v1).
 - **Step 7.** Governance layer. Jurisdiction packs. RAG over methodology docs. Audit log integration.
@@ -191,8 +191,8 @@ At each step: confirm with Paul before proceeding to the next. Use feature flags
 
 ### CONSTRAINTS THAT SHAPE EVERY STEP
 
-- **Additive-first.** New code, new tables, new modules. Don't restructure across Anchor and Surepath in the same change.
+- **Additive-first.** New code, new tables, new modules. Don't restructure across Grounded and Surepath in the same change.
 - **Reversible.** Every change can be rolled back without data loss.
-- **Codebase investigation before writing.** Look at how Surepath does the equivalent thing before writing Anchor's version.
+- **Codebase investigation before writing.** Look at how Surepath does the equivalent thing before writing Grounded's version.
 - **No greenfield rewrites of working code in past projects.**
 - **Honest scoping.** If a feature looks bigger than the briefing implies, flag it before building.

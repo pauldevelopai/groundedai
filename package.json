@@ -2,7 +2,7 @@
   "name": "anchor",
   "version": "0.0.0",
   "private": true,
-  "description": "Anchor — newsroom AI platform (GROUNDED, Develop AI)",
+  "description": "Grounded — newsroom AI platform (Develop AI)",
   "type": "commonjs",
   "scripts": {
     "dev": "next dev -p 3002",

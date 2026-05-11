@@ -1,34 +1,34 @@
-# Anchor — Build Hand-off
+# Grounded — Build Hand-off
 
-For the AI agent picking up this build. Paul is now driving Anchor from **Claude Code inside VS Code**.
+For the AI agent picking up this build. Paul is now driving Grounded from **Claude Code inside VS Code**.
 
 **Read this entire file before touching code.** Then read:
-- [`docs/AGENTS.md`](AGENTS.md) — **canonical agent definitions** (the 10 agents, verbatim from Paul's final spec). This is the source of truth for what each agent does. Registry descriptions and all references must match it.
+- [`docs/AGENTS.md`](AGENTS.md) — **canonical agent definitions** (the 11 agents, verbatim from Paul's final spec). This is the source of truth for what each agent does. Registry descriptions and all references must match it.
 - [`docs/BRIEFING.md`](BRIEFING.md) — original product brief (older; AGENTS.md supersedes any agent-scope conflict).
 - [`../REUSE.md`](../REUSE.md) — lift inventory.
 
-Last updated 2026-05-05 PM after Paul's final agent spec absorbed the morning concept-note PDF and pilot scope was widened — only WhatsApp and Lightsail are post-pilot now.
+Last updated 2026-05-11 after the Anchor → Grounded rename pass and the agent-name re-alignment (Drafter → Copywriter, Distributor → Digital News Gatherer with outbound conceptually re-homed under Copywriter, Producer → Audio & Video Producer, Audience → Audience Analytics Manager, Operations → Operations Manager, Social Listener → Social media listener). Internal slugs/tables/env vars unchanged.
 
 ---
 
 ## 0. What changed in this session (2026-05-05)
 
-1. **Pilot scope = the full PDF concept note (final agent spec, 2026-05-05 PM).** Only **WhatsApp delivery** and **Lightsail deploy** are post-pilot. Everything else — full Producer (audio + video + audiograms), full Translator (multi-model routing + glossary + edit feedback), full two-way Distributor, full Operations (incl. contributor mgmt), Audience clones with default low-data/vernacular/feature-phone personas, the learning layer, the newsroom profile object — is **in pilot**.
-2. **Canonical agent text moved to [`docs/AGENTS.md`](AGENTS.md).** The 10 agents are described verbatim there. Treat that file as primary source of truth — registry descriptions in `lib/agents/*.js` must match.
-3. **Pilot agent set = the official 10** from the concept note. Sourcer, Media Verifier, Compliance dropped. Funder renamed Fundraiser.
+1. **Pilot scope = the full PDF concept note (final agent spec, 2026-05-11 rename pass).** Only **WhatsApp delivery** and **Lightsail deploy** are post-pilot. Everything else — full Audio & Video Producer (audio + video + audiograms), full Translator (multi-model routing + glossary + edit feedback), inbound-only Digital News Gatherer (outbound posting moved conceptually to Copywriter — code lives under `lib/distribution/*`), full Operations Manager (incl. contributor mgmt), Audience Analytics Manager consultations (headline_test / angle_check / analytics_query — synthetic personas dropped 2026-05-07), the learning layer, the newsroom profile object — is **in pilot**.
+2. **Canonical agent text moved to [`docs/AGENTS.md`](AGENTS.md).** The 11 agents are described verbatim there. Treat that file as primary source of truth — registry descriptions in `lib/agents/*.js` must match.
+3. **Pilot agent set = the official 11.** Sourcer, Media Verifier, Compliance dropped from the original concept-note set. Funder renamed Fundraiser. Social media listener added 2026-05-07 (was 10 → 11 in that revision).
 4. **Governance / compliance layer dropped** (no jurisdiction packs / POPIA enforcement / audit-export). Internal `audit_log` table stays for plain debugging. The new "**learning layer**" — curated AI ethics/law/security update FEED + cross-cohort meta-analytics + workflow auto-promotion — is a different mechanism and IS in pilot.
-5. **User mode is a web app — not a chat, not WhatsApp.** Builder mode (desktop web app, drag-and-drop canvas) composes workflows. User mode (web list of workflows by problem category) consumes them, filtered by per-workflow team-member assignment. WhatsApp-for-journalists was earlier planned but **dropped 2026-05-05 PM** — too complicated. WhatsApp stays in scope only for Distributor's audience-facing channels (tips in, broadcasts/corrections out).
+5. **User mode is a web app — not a chat, not WhatsApp.** Builder mode (desktop web app, drag-and-drop canvas) composes workflows. User mode (web list of workflows by problem category) consumes them, filtered by per-workflow team-member assignment. WhatsApp-for-journalists was earlier planned but **dropped 2026-05-05 PM** — too complicated. WhatsApp stays in scope only for Digital News Gatherer's audience-facing channels (tips in, broadcasts/corrections out).
 6. **Builder mode is drag-and-drop on a single canvas page** (React Flow). Workflows list rail on the left, agent palette below it, canvas centre, per-node config + workflow settings + Members on the right. Per-workflow team-member assignment in `workflow_assignments` (migration 007).
-7. **Verifier ↔ Distributor coupling.** Verifier checks both journalist-sourced and community-submitted material. Distributor's inbound triage queue surfaces community material to an **editor**; the editor decides per item whether to send it to Verifier (fact-check) or Operations (contributor handling) — this is editorial judgment, not auto-routing. Build sequencing: Operations before Distributor; credibility-map enhancement after the inbound flow exists.
+7. **Verifier ↔ Digital News Gatherer coupling.** Verifier checks both journalist-sourced and community-submitted material. Digital News Gatherer's inbound triage queue surfaces community material to an **editor**; the editor decides per item whether to send it to Verifier (fact-check) or Operations (contributor handling) — this is editorial judgment, not auto-routing. Build sequencing: Operations before Digital News Gatherer; credibility-map enhancement after the inbound flow exists.
 8. **Open-source-first rule locked.** Every non-LLM module (embeddings, vision, OCR, translation, speech, …) **must be fully free at any usage volume** — i.e. OSS we self-host (Hugging Face is the default place to look). Free-tier hosted APIs are NOT acceptable. Anthropic Claude is the only allowed paid dependency.
 9. **Cohere replaced.** Embeddings run locally via `@huggingface/transformers` against `Xenova/bge-m3`. Same 1024-dim output, no schema migration. See [`lib/storage/embed.js`](../lib/storage/embed.js).
 10. **Repo on GitHub** at `https://github.com/pauldevelopai/anchor.git`. **Repo path** is `/Users/paulmcnally/Developai Dropbox/Paul McNally/DROPBOX/ONMAC/PYTHON 2025/anchor`.
 
 ---
 
-## 1. What Anchor is (one paragraph)
+## 1. What Grounded is (one paragraph)
 
-Shared AI infrastructure for African newsrooms. A multi-tenant web platform with an **agent execution layer** (10 pilot agents — see §2). The pitch: most African newsrooms have done an AI workshop; almost none have working AI infrastructure. Anchor closes that gap by providing prebuilt agents and a low-code Builder for non-technical newsroom leads. Pilot is **5 ZimZam newsrooms** (Capital FM Lusaka, EnviroPress, MakanDay, Maricho Media, VicFallsLive). Primary markets to expand into post-pilot: South Africa, Zimbabwe, Zambia, Kenya. Anchor is the flagship of GROUNDED, a practice under Develop AI.
+Shared AI infrastructure for African newsrooms. A multi-tenant web platform with an **agent execution layer** (11 pilot agents — see §2). The pitch: most African newsrooms have done an AI workshop; almost none have working AI infrastructure. Grounded closes that gap by providing prebuilt agents and a low-code Builder for non-technical newsroom leads. Pilot is **5 ZimZam newsrooms** (Capital FM Lusaka, EnviroPress, MakanDay, Maricho Media, VicFallsLive). Primary markets to expand into post-pilot: South Africa, Zimbabwe, Zambia, Kenya. Grounded is the flagship of GROUNDED, a practice under Develop AI.
 
 Two modes:
 - **Builder mode** — the AI champion at the newsroom (editor, head of audience) composes AI workflows on a desktop web app, picking from the prebuilt agents and writing the prompts. No coding required.
@@ -38,7 +38,7 @@ Cross-newsroom **shared workflow library** is the network effect. Per-newsroom i
 
 ---
 
-## 2. The 10 agents
+## 2. The 11 agents
 
 **Canonical scope: [`docs/AGENTS.md`](AGENTS.md)** — verbatim from Paul's final spec. Read it first; this section just summarises build state and OSS-dependency notes. If anything here disagrees with AGENTS.md, AGENTS.md wins.
 
@@ -46,9 +46,9 @@ Cross-newsroom **shared workflow library** is the network effect. Per-newsroom i
 
 | # | Agent | Build status |
 |---|-------|--------------|
-| 1 | **Verifier** | Built. Pending: Distributor-intake-queue integration, Africa-grounded credibility map (SA + ZW + ZM + KE). |
+| 1 | **Verifier** | Built. Pending: Digital News Gatherer-intake-queue integration, Africa-grounded credibility map (SA + ZW + ZM + KE). |
 | 2 | **Archivist** | Built. BGE-M3 + pgvector. |
-| 3 | **Drafter** | Built. House style still surface-level (will deepen as Newsroom Profile lands). |
+| 3 | **Copywriter** | Built. House style still surface-level (will deepen as Newsroom Profile lands). |
 
 **To build (all in pilot scope per the final spec):**
 
@@ -56,15 +56,15 @@ Cross-newsroom **shared workflow library** is the network effect. Per-newsroom i
 |---|-------|---------------------------------------------------|
 | 4 | **Researcher** | `pdf-parse` (already in repo), GLiNER for entity extraction. |
 | 5 | **Translator** | Helsinki-NLP `opus-mt-*` (Marian), Meta NLLB-200 distilled, Masakhane (`afri-mt5`, `afroLM`), Lelapa AI's open models — via `@huggingface/transformers` in-process. **Multi-model routing layer is core, not optional.** |
-| 6 | **Producer** | `faster-whisper` (STT), Piper / Coqui TTS, `ffmpeg`. Stock footage source TBD — Pexels/Pixabay are free-tier hosted APIs (NOT OSS-rule-compliant); Wikimedia Commons or per-newsroom uploaded libraries are likely. |
-| 7 | **Distributor** | Direct API clients for social/newsletter/CMS. WhatsApp piece lifts from `surepath/whatsapp.js` post-pilot. |
+| 6 | **Audio & Video Producer** | `faster-whisper` (STT), Piper / Coqui TTS, `ffmpeg`. Stock footage source TBD — Pexels/Pixabay are free-tier hosted APIs (NOT OSS-rule-compliant); Wikimedia Commons or per-newsroom uploaded libraries are likely. |
+| 7 | **Digital News Gatherer** | Direct API clients for social/newsletter/CMS. WhatsApp piece lifts from `surepath/whatsapp.js` post-pilot. |
 | 8 | **Fundraiser** | Mostly Claude-driven over a `funders` table + `newsroom_profiles`. |
 | 9 | **Audience** | Plausible / Umami connectors + GA export parser; persona generation via Claude with seeded defaults. |
 | 10 | **Operations** | DB + Claude. Adds `contributors` table (vetting/attribution/payment/moderation). |
 
 **Plus the learning layer** (Slice 16): AI ethics/data law/security update feed + cross-cohort meta-analytics + workflow auto-promotion. Curated, not enforcement.
 
-**Plus the newsroom profile** (Slice 7): first-class object holding strengths, prior coverage, audience data, impact stories. Read by Fundraiser, Audience, Drafter (style), Producer.
+**Plus the newsroom profile** (Slice 7): first-class object holding strengths, prior coverage, audience data, impact stories. Read by Fundraiser, Audience, Copywriter (style), Audio & Video Producer.
 
 **Sequencing rule:** Builder + User UI scaffold ships first (done in Slice 4 / 4b) so each new agent lights up in the UI as it ships. New agents = registry entry + module + smoke-test through Builder UI before moving on.
 
@@ -81,7 +81,7 @@ ff788f1 Step 5 Slice 3: workflow runner + POST /api/workflows/:id/run
 d145baf Step 5 Slice 2: workflows table + CRUD
 60b9aa5 Step 5 Slice 1: agent registry + GET /api/agents
 fbc8eca Replace Cohere embeddings with local BGE-M3 (Transformers.js)
-9cd82a3 Step 4c and 4d: Archivist and Drafter agents
+9cd82a3 Step 4c and 4d: Archivist and Copywriter agents
 d80b08c Step 4 Pass B: Verifier agent
 7977582 Step 4 Pass A: Claude wrapper + cost logging + JSON parser + smoke endpoint
 21e5d70 Step 3b: auth layer (login, logout, me, seed)
@@ -107,14 +107,14 @@ fdcc608 Step 3a: scaffold Next.js + Postgres backbone
 - **Node.js** at root with `"type": "commonjs"` (matches Surepath). Use `require` / `module.exports`.
 - **Next.js 15 App Router** under `app/`, **TypeScript** there. Use `import` / `export`. The Next.js bundler handles CJS↔ESM interop automatically.
 - **PostgreSQL** with raw SQL migrations (no ORM). Migration files in `db/migrations/` numbered `001_*.sql`, `002_*.sql`, etc.
-- **Anthropic SDK** for Claude calls — wrapped in `lib/claude.js` with retry-with-exponential-backoff for 429/529/connection errors. Anthropic is the **only paid dependency** in Anchor.
+- **Anthropic SDK** for Claude calls — wrapped in `lib/claude.js` with retry-with-exponential-backoff for 429/529/connection errors. Anthropic is the **only paid dependency** in Grounded.
 - **Embeddings: `@huggingface/transformers` + `Xenova/bge-m3`**, in-process. ESM-only package consumed via dynamic `import()` inside the CJS module. See [`lib/storage/embed.js`](../lib/storage/embed.js).
 - **Roll-our-own auth** — JWT in httpOnly cookie + bcryptjs. Lifted from Holly. See `lib/auth.js`, `app/lib/session.ts`, `app/api/auth/*`.
 - **Multi-tenancy via explicit `newsroom_id UUID NOT NULL REFERENCES newsrooms(id)` foreign keys** on every per-newsroom row. NOT arrays (Holly's `sector_ids[]` pattern was rejected).
 - **Cost logging** is automatic for Claude — every `chat()` call inserts a row to `api_costs`. Embeddings now cost $0 so no rows are written for them.
 - **Audit log** is at workflow level (`audit_log` table); per-API-call cost is in `api_costs`; per-agent-run state is in `workflow_runs`. Three distinct tables, distinct purposes.
 - **JSDoc types in CJS modules must inline the full shape** in `@returns`. Typedefs and `object` type don't propagate cleanly across CJS↔TS module boundaries. Lesson learned the hard way in commit `78e2798`.
-- **Module-system gotcha:** Holly is ESM, Surepath is CommonJS, Anchor stays CommonJS at root. When porting Holly patterns, convert `import` → `require`. For ESM-only npm packages (like `@huggingface/transformers`), use dynamic `import()` inside an async wrapper.
+- **Module-system gotcha:** Holly is ESM, Surepath is CommonJS, Grounded stays CommonJS at root. When porting Holly patterns, convert `import` → `require`. For ESM-only npm packages (like `@huggingface/transformers`), use dynamic `import()` inside an async wrapper.
 
 ### Ports
 
@@ -122,14 +122,14 @@ fdcc608 Step 3a: scaffold Next.js + Postgres backbone
 |---------|------|
 | Surepath | 3000 |
 | Holly server | 3001 |
-| **Anchor** | **3002** |
+| **Grounded** | **3002** |
 
 ### Build approach (CRITICAL — Paul's preference)
 
 - **Step → confirm → next step.** Do not chain through multiple build phases without explicit Paul approval. Each commit should be a unit Paul can review and reverse.
-- **Additive-first.** New code, new tables, new modules. Do not restructure across Anchor and Surepath in the same change.
+- **Additive-first.** New code, new tables, new modules. Do not restructure across Grounded and Surepath in the same change.
 - **Reversible.** Every change should be roll-backable without data loss.
-- **Investigation before writing.** Look at how Surepath does the equivalent thing before writing Anchor's version. Log every reuse in [`../REUSE.md`](../REUSE.md).
+- **Investigation before writing.** Look at how Surepath does the equivalent thing before writing Grounded's version. Log every reuse in [`../REUSE.md`](../REUSE.md).
 - **No greenfield rewrites of working code in past projects.**
 - **Honest scoping.** If a feature looks bigger than the briefing implies, flag it before building.
 - **Park side-tasks.** When a side-task appears mid-build (Drive housekeeping, ops cleanup), propose deferring rather than diving in. Paul has been burned by this.
@@ -234,24 +234,24 @@ Don't re-litigate these unless Paul re-opens them:
 | Paid LLM | Anthropic Claude (Opus 4.7 default) | The only paid dep. All other agents must be OSS. |
 | Upload formats v1 (Archivist) | PDF, DOCX, plaintext, Markdown | URL fetch deferred to v1.5 |
 | Storage (Archivist uploads) | Local filesystem mock for now. Real S3 + Drive mirror lands with the post-pilot deploy work. | Confirmed 2026-05-05 |
-| WhatsApp surface for **journalists / Users** | **DROPPED.** Earlier "WA delivery for User mode post-pilot" decision is reversed. Anchor's User mode is web-only forever. | Reversed 2026-05-05 PM |
-| WhatsApp surface for **the audience** (Distributor) | **Post-pilot.** Lifts from `surepath/whatsapp.js`. Distributor's WhatsApp inbound (tips, submissions) + outbound (broadcasts) + correction-loop pieces sequence with this. Audience-facing only. | Confirmed 2026-05-05 PM |
+| WhatsApp surface for **journalists / Users** | **DROPPED.** Earlier "WA delivery for User mode post-pilot" decision is reversed. Grounded's User mode is web-only forever. | Reversed 2026-05-05 PM |
+| WhatsApp surface for **the audience** (Digital News Gatherer) | **Post-pilot.** Lifts from `surepath/whatsapp.js`. Digital News Gatherer's WhatsApp inbound (tips, submissions) + outbound (broadcasts) + correction-loop pieces sequence with this. Audience-facing only. | Confirmed 2026-05-05 PM |
 | Lightsail deployment | **Post-pilot.** Sibling to surepath-prod. | Confirmed 2026-05-05 PM |
-| Pilot scope (everything else) | **Full PDF concept note (final 2026-05-05 PM spec).** Producer's full multimedia pipeline, Translator's multi-model routing + glossary + edit-feedback, Distributor's two-way intake + triage queue (web/non-WA channels), Operations whole-org + contributor mgmt, Audience clones with default low-data/vernacular/feature-phone personas, the learning layer, the newsroom profile object — ALL pilot. | Confirmed 2026-05-05 PM |
+| Pilot scope (everything else) | **Full PDF concept note (final 2026-05-05 PM spec).** Audio & Video Producer's full multimedia pipeline, Translator's multi-model routing + glossary + edit-feedback, Digital News Gatherer's two-way intake + triage queue (web/non-WA channels), Operations whole-org + contributor mgmt, Audience clones with default low-data/vernacular/feature-phone personas, the learning layer, the newsroom profile object — ALL pilot. | Confirmed 2026-05-05 PM |
 | Governance / Compliance layer | **DROPPED.** No jurisdiction packs / POPIA enforcement / audit-export. The new "**learning layer**" is a curated AI-ethics/law update FEED (different mechanism, IS in pilot). Internal `audit_log` stays for debugging. | Confirmed 2026-05-05 |
 | Workflow library v1 | Flat shared list with attribution; no versioning/moderation. Learning layer's auto-promotion of "successful configs as deployable assets" comes from cross-cohort meta-analytics, not editorial moderation. | Confirmed 2026-05-05 |
 | User mode UX | **Web app, list-of-workflows.** Journalists pick a workflow grouped by problem category, see the problem statement + step-by-step user instructions, fill the form, run, see the output. **Not a chat surface.** Not WhatsApp-accessible. | Per Paul 2026-05-05 PM |
 | Workflow framing | Every workflow has `problem_statement`, `problem_category`, `user_instructions` (migration 009). Workflows are framed as products solving newsroom problems — not technical pipelines. The shared library becomes a marketplace of solved problems. | Confirmed 2026-05-05 PM |
 | In-Builder testing | Builder has a "▶ Test as user" button that auto-saves and opens a side panel rendering the workflow as the User will experience it (problem statement + instructions + input form + rendered output). The same `WorkflowRunner` component powers User mode in /run. | Confirmed 2026-05-05 PM |
 | Per-workflow team-member assignment | `workflow_assignments` table (migration 007). User mode chat filters by assignments — only show workflows the user is on. | Confirmed 2026-05-05 PM |
-| Per-newsroom credentials (Distributor) | Encrypted at rest with a key from `CREDENTIALS_KEY`. Decrypted only at posting time. Highest-blast-radius surface — security review before pilot launch. | Confirmed 2026-05-05 |
+| Per-newsroom credentials (Digital News Gatherer) | Encrypted at rest with a key from `CREDENTIALS_KEY`. Decrypted only at posting time. Highest-blast-radius surface — security review before pilot launch. | Confirmed 2026-05-05 |
 | Verifier philosophy | "Never Accuse" — neutral, advisory, all evidence "to be independently confirmed". | Hard constraint per briefing |
 | Verifier source-credibility map | Curated for **SA + Zimbabwe + Zambia + Kenya**. Outlets, official agencies, recognised credible vs. known-problem sources per country. | Confirmed 2026-05-05 |
 | Translator languages | **SA-focused** per final spec: isiZulu, isiXhosa, Sesotho, Setswana, Siswati, IsiNdebele, Sepedi, Afrikaans. NOT the same list as Verifier's market list (which spans SA + ZW + ZM + KE). | Confirmed 2026-05-05 PM |
 | Translator routing | **Multi-model per language pair** (NLLB-200, Helsinki opus-mt, Masakhane afri-mt5, Lelapa, etc.) — not a single-model wrapper. | Confirmed 2026-05-05 PM |
-| Pilot agent set | **The 10 in `docs/AGENTS.md`** — verbatim from Paul's final spec. | Confirmed 2026-05-05 PM |
+| Pilot agent set | **The 11 in `docs/AGENTS.md`** — verbatim from Paul's latest spec. | Confirmed 2026-05-11 |
 | Primary markets | SA, Zimbabwe, Zambia, Kenya. Pilot newsrooms remain 5 ZimZam (ZW + ZM); SA + KE in next cohort. | Confirmed 2026-05-05 |
-| Build order | UI scaffold (done) → agents in dependency order. Operations BEFORE Distributor (Distributor routes contributors to Operations). Newsroom Profile early (Slice 7 — many agents read it). | Confirmed 2026-05-05 PM |
+| Build order | UI scaffold (done) → agents in dependency order. Operations BEFORE Digital News Gatherer (Digital News Gatherer routes contributors to Operations). Newsroom Profile early (Slice 7 — many agents read it). | Confirmed 2026-05-05 PM |
 
 ---
 
@@ -259,12 +259,12 @@ Don't re-litigate these unless Paul re-opens them:
 
 ### Airtable
 
-Single base: **Develop AI** (`app4FVlF4AAy8Q8s2`). Tables Anchor talks to:
+Single base: **Develop AI** (`app4FVlF4AAy8Q8s2`). Tables Grounded talks to:
 
 | Table | ID | Use |
 |-------|----|----|
-| **Newsrooms** | `tblUCJtQvYFcSIdxP` | Source of truth for newsroom metadata. Anchor's local `newsrooms` table is a cache; sync on demand via `airtable_record_id`. |
-| **Activity Log** | `tblbjZL7ckos17au5` | Anchor writes high-signal events here (workflow created, agent run, governance flag) tagged with `Stream=Anchor`. Postgres `audit_log` keeps the full forensic trail. |
+| **Newsrooms** | `tblUCJtQvYFcSIdxP` | Source of truth for newsroom metadata. Grounded's local `newsrooms` table is a cache; sync on demand via `airtable_record_id`. |
+| **Activity Log** | `tblbjZL7ckos17au5` | Grounded writes high-signal events here (workflow created, agent run, governance flag) tagged with `Stream=Grounded`. Postgres `audit_log` keeps the full forensic trail. |
 | **Contacts** | `tblDjons0lRF2ft77` | AI champions linked to Newsrooms. Has 3 link fields (`Newsrooms`, `Newsrooms 2`, `Newsrooms 3`) — verify which is canonical when reading. |
 
 Sync model: read on demand (not nightly cache).
@@ -273,11 +273,11 @@ Sync model: read on demand (not nightly cache).
 
 **Canonical knowledge base:** `08 - Knowledge Library` (`1nuVY8OIpZfctRw-eGJ3uj8FCitZBBlGE`) under `My Drive/Develop AI/`.
 
-11 topic subfolders (created by Paul). **Anchor does not ingest from this library yet.** The earlier governance/methodology RAG was dropped along with the Compliance agent. The new **learning layer (Slice 16)** may pull from a curated subset — review when we get there; do NOT pre-ingest now.
+11 topic subfolders (created by Paul). **Grounded does not ingest from this library yet.** The earlier governance/methodology RAG was dropped along with the Compliance agent. The new **learning layer (Slice 16)** may pull from a curated subset — review when we get there; do NOT pre-ingest now.
 
 **Newsroom uploads (Step 4c Archivist):** **For the pilot, stays local-disk.** S3 + per-newsroom Drive folder mirror are post-pilot infra (currently mocked).
 
-**ZimZam needs assessments** (in `08 - Knowledge Library/01 - Needs Assessments/ZimZam Cohort 2026/`): per Paul's hard constraint, these are **reference material for newsrooms only**, **NOT product inputs**. Do NOT ingest them into Anchor's governance RAG. Do NOT extract per-newsroom signals from them to bake into product config.
+**ZimZam needs assessments** (in `08 - Knowledge Library/01 - Needs Assessments/ZimZam Cohort 2026/`): per Paul's hard constraint, these are **reference material for newsrooms only**, **NOT product inputs**. Do NOT ingest them into Grounded's governance RAG. Do NOT extract per-newsroom signals from them to bake into product config.
 
 ### Drive cleanup pending
 
@@ -287,7 +287,7 @@ There's an orphan `08 - GROUNDED Knowledge Base/` folder (id `1jq2VORItU0Kv9UI6i
 
 ## 8. Off-limits
 
-- **Surepath is live in production** on AWS Lightsail (`surepath-prod`, `af-south-1`). Local copy at `../surepath/` is **read-only reference**. NEVER modify it. Lift patterns into Anchor; do not refactor Surepath.
+- **Surepath is live in production** on AWS Lightsail (`surepath-prod`, `af-south-1`). Local copy at `../surepath/` is **read-only reference**. NEVER modify it. Lift patterns into Grounded; do not refactor Surepath.
 - **Secrets stay in `.env` (gitignored).** Do not commit. Real values were lifted from `../surepath/.env` (Paul has explicitly authorized reading that file).
 - **`JusticePro`, `SmartGuard`** — parked products. Ignore if encountered.
 - **Needs assessments** — reference only, NOT product inputs (see §7 Drive section).
@@ -318,14 +318,14 @@ Order set by dependencies:
 
 | Slice | Description |
 |-------|-------------|
-| 7 | **Newsroom profile** — schema + CRUD. Read by Fundraiser, Audience, Drafter (style), Producer. |
+| 7 | **Newsroom profile** — schema + CRUD. Read by Fundraiser, Audience, Copywriter (style), Audio & Video Producer. |
 | 8 | **Researcher** — `pdf-parse`, GLiNER for entity extraction, public-records orchestration. |
 | 9 | **Translator** — sub-slices: 9a glossary + Helsinki-NLP `opus-mt-*` baseline; 9b multi-model routing layer (NLLB / opus-mt / Masakhane / Lelapa); 9c phrase-level confidence; 9d edit-feedback loop (glossary auto-update + routing reweighting). SA-focused languages. |
-| 10 | **Operations** — calendar/deadlines/freelancers + sales/logistics/finance + community contributor management (vetting, attribution, payment, moderation). Must ship before Distributor. |
-| 11 | **Distributor** — sub-slices: 11a inbound triage queue + web-form intake; 11b outbound creds (encrypted) + social/CMS posting; 11c **editor triage actions** ("send to Verifier" / "send to Operations" — manual editorial decisions from the queue, not auto-routing); 11d correction loop. WhatsApp inbound + outbound + WA-correction-loop pieces sequence with WA itself (post-pilot). |
+| 10 | **Operations** — calendar/deadlines/freelancers + sales/logistics/finance + community contributor management (vetting, attribution, payment, moderation). Must ship before Digital News Gatherer. |
+| 11 | **Digital News Gatherer** — sub-slices: 11a inbound triage queue + web-form intake; 11b outbound creds (encrypted) + social/CMS posting; 11c **editor triage actions** ("send to Verifier" / "send to Operations" — manual editorial decisions from the queue, not auto-routing); 11d correction loop. WhatsApp inbound + outbound + WA-correction-loop pieces sequence with WA itself (post-pilot). |
 | 12 | **Audience** — analytics ingest (Plausible/Umami/GA/CSV) + clones from data + DEFAULT low-data/vernacular/feature-phone personas seeded. |
 | 13 | **Fundraiser** — funder library + per-newsroom profile composition + cohort joint-application matching. |
-| 14 | **Producer** — sub-slices: 14a text outputs (radio scripts, podcast outlines, video briefs); 14b audio assembly (Whisper + Piper + sound design); 14c vertical video assembly (ffmpeg + footage retrieval + auto-captions); 14d audiograms. |
+| 14 | **Audio & Video Producer** — sub-slices: 14a text outputs (radio scripts, podcast outlines, video briefs); 14b audio assembly (Whisper + Piper + sound design); 14c vertical video assembly (ffmpeg + footage retrieval + auto-captions); 14d audiograms. |
 | 15 | **Verifier credibility map** — structured JSON/DB table covering SA + ZW + ZM + KE outlets, official agencies, known-disinformation sources. Verifier loads at run time. |
 | 16 | **Learning layer** — AI ethics/data law/security update feed + cross-cohort meta-analytics + auto-promotion of successful workflows as deployable assets. |
 
@@ -335,12 +335,12 @@ For each new agent: investigate OSS deps on Hugging Face / GitHub first (default
 
 **Do not start before pilot signoff.**
 - **Lightsail deploy** — sibling to `surepath-prod`. Deploy script lifts from `surepath/deploy.sh`. Confirm BGE-M3 + Whisper + NLLB model-cache strategy.
-- **WhatsApp** — lift `surepath/whatsapp.js`. Adapt conversation state to User-mode chat. Hooks into Distributor's two-way pieces (inbound, outbound broadcasts, correction loop).
+- **WhatsApp** — lift `surepath/whatsapp.js`. Adapt conversation state to User-mode chat. Hooks into Digital News Gatherer's two-way pieces (inbound, outbound broadcasts, correction loop).
 - **Real S3 + Drive mirror** — replace local-disk uploads.
 
 ### Removed from plan
 
-- ~~Compliance agent~~, ~~Sourcer~~, ~~Media Verifier~~ — not in the official 10.
+- ~~Compliance agent~~, ~~Sourcer~~, ~~Media Verifier~~ — not in the official 11.
 - ~~Governance / jurisdiction packs / POPIA enforcement~~ — moved to a different system. The new "learning layer" (Slice 16) is a different mechanism (curated FEED, not enforcement).
 
 ---
@@ -350,7 +350,7 @@ For each new agent: investigate OSS deps on Hugging Face / GitHub first (default
 Most pre-existing open questions are resolved. Remaining:
 
 1. **User-mode chat routing.** Going with **(a) keyword-first + (b) LLM-fallback** unless Paul redirects. Workflow trigger phrases are matched first; if none match, a small Claude call picks the best-fit workflow from the user's assigned set.
-2. **Producer stock-footage source.** Pexels/Pixabay are free-tier hosted APIs (NOT OSS-rule-compliant). Likely options: Wikimedia Commons (open license), per-newsroom uploaded asset library, or a curated open-asset bundle baked into the deploy. Decide at Slice 14.
+2. **Audio & Video Producer stock-footage source.** Pexels/Pixabay are free-tier hosted APIs (NOT OSS-rule-compliant). Likely options: Wikimedia Commons (open license), per-newsroom uploaded asset library, or a curated open-asset bundle baked into the deploy. Decide at Slice 14.
 3. **Audience analytics connectors.** Plausible / Umami / GA export / raw CSV. Default-persona seed handles newsrooms with no analytics; analytics ingest is opportunistic. Confirm when we get there whether any pilot newsroom has real analytics to wire up.
 
 ---
@@ -365,7 +365,7 @@ Local sibling directories under `../`:
 | `../holly/` | Node ESM Express + React client | No | H1–H8: server middleware order, JWT+bcrypt auth, migration runner, googleapis usage, pluggable LLM dispatch, admin route guarding. |
 | `../aikit/`, `../aitools/`, `../grounded/` | Python FastAPI scaffold (3 forks of same scaffold) | No | Reference only — different stack. |
 | `../alibi/` | Python computer vision | No | **Worth a deeper look for Media Verifier (Step 5+).** Vision/RTSP patterns. |
-| `../aipod/` | Python audio pipeline (Celery+Redis) | No | **Worth a deeper look for Producer (Step 5+).** Whisper integration patterns. |
+| `../aipod/` | Python audio pipeline (Celery+Redis) | No | **Worth a deeper look for Audio & Video Producer (Step 5+).** Whisper integration patterns. |
 | `../recapture/`, `../market/`, `../substack/` | Python | No | Reference only. |
 
 For each lift, **log it in [`../REUSE.md`](../REUSE.md)** with date, source path, target path, tier (🟢 LIFT / 🟡 ADAPT / 🔴 REFERENCE), and notes. This is non-negotiable — Paul audits this file.
@@ -376,14 +376,14 @@ For each lift, **log it in [`../REUSE.md`](../REUSE.md)** with date, source path
 
 User-level memory lives at `~/.claude/projects/-Users-paulmcnally-Developai-Dropbox-Paul-McNally-DROPBOX-ONMAC-PYTHON-2025-anchor/memory/`. Key facts saved there:
 
-- **Anchor's only paid dep is Anthropic.** Everything else must be OSS, fully free, no free-tier limits. Hugging Face is the default place to look first.
+- **Grounded's only paid dep is Anthropic.** Everything else must be OSS, fully free, no free-tier limits. Hugging Face is the default place to look first.
 - **Pilot scope = the full PDF concept note (final 2026-05-05 PM spec)** — see [`docs/AGENTS.md`](AGENTS.md) for the canonical agent definitions. ONLY WhatsApp + Lightsail are post-pilot.
 - **Translator scope** — multi-model routing per language pair + per-newsroom glossary + phrase confidence + edit-feedback loop. SA-focused languages.
-- **Distributor scope** — two-way (inbound triage + outbound) with correction loop. Routes inbound to Verifier (fact-check) + Operations (contributor mgmt).
-- **Operations scope** — whole-org (sales/logistics/finance) + community contributor management. Build BEFORE Distributor.
+- **Digital News Gatherer scope** — two-way (inbound triage + outbound) with correction loop. Routes inbound to Verifier (fact-check) + Operations (contributor mgmt).
+- **Operations scope** — whole-org (sales/logistics/finance) + community contributor management. Build BEFORE Digital News Gatherer.
 - **Audience scope** — analytics conversion + clones + DEFAULT low-data/vernacular/feature-phone personas seeded.
 - **Builder mode = drag-and-drop canvas** at /builder. Per-workflow team-member assignment via `workflow_assignments`.
-- **User mode = web list of workflows by problem category**, filtered by per-workflow assignment. Not a chat. Not WhatsApp. WhatsApp is only for Distributor's audience channels (post-pilot).
+- **User mode = web list of workflows by problem category**, filtered by per-workflow assignment. Not a chat. Not WhatsApp. WhatsApp is only for Digital News Gatherer's audience channels (post-pilot).
 - **Workflow framing** — every workflow has problem_statement + problem_category + user_instructions. Builder writes the framing; User sees it on /run.
 - **Primary markets:** SA, Zimbabwe, Zambia, Kenya. Pilot newsrooms remain 5 ZimZam.
 - **Build agents incrementally behind the UI**, not in a long invisible batch. Step → confirm → next step. Park side-tasks.
@@ -394,4 +394,4 @@ User-level memory lives at `~/.claude/projects/-Users-paulmcnally-Developai-Drop
 
 ## 13. Bootstrap prompt for the next agent
 
-> Read `docs/AGENTS.md` (canonical agent definitions), `docs/HANDOFF.md` (this file), and `REUSE.md` (lift inventory) in full before doing anything. Anchor is shared AI infrastructure for African newsrooms. **Pilot scope = the full PDF concept note as it stands in `docs/AGENTS.md` — only WhatsApp delivery and Lightsail deploy are post-pilot. Everything else (Producer's full multimedia, Translator's multi-model routing + glossary + edit-feedback, two-way Distributor, Operations including contributor mgmt, Audience clones with default low-data/vernacular/feature-phone personas, the learning layer, the newsroom profile object) is in pilot.** Anthropic Claude is the only paid dependency; everything else must be OSS, fully free at any volume, self-hosted (Hugging Face is the default place to look). 3 of 10 agents are shipped as basic shells (Verifier, Archivist, Drafter); Builder UI scaffold is shipped with drag-and-drop, workflow CRUD, runner, and per-workflow team-member assignment. Next phase is Slice 5 (User chat surface filtered by assignments). Before writing code, confirm the open questions in §10 and the slice plan in §9. Step → confirm → next step; park side-tasks.
+> Read `docs/AGENTS.md` (canonical agent definitions), `docs/HANDOFF.md` (this file), and `REUSE.md` (lift inventory) in full before doing anything. Grounded is shared AI infrastructure for African newsrooms. **Pilot scope = the full PDF concept note as it stands in `docs/AGENTS.md` — only WhatsApp delivery and Lightsail deploy are post-pilot. Everything else (Audio & Video Producer's full multimedia, Translator's multi-model routing + glossary + edit-feedback, inbound-only Digital News Gatherer with outbound conceptually re-homed under Copywriter, Operations Manager including contributor mgmt, Audience Analytics Manager consultations grounded in historical analytics, the learning layer, the newsroom profile object) is in pilot.** Anthropic Claude is the only paid dependency; everything else must be OSS, fully free at any volume, self-hosted (Hugging Face is the default place to look). 3 of 11 agents are shipped as basic shells (Verifier, Archivist, Copywriter); Builder UI scaffold is shipped with drag-and-drop, workflow CRUD, runner, and per-workflow team-member assignment. Next phase is Slice 5 (User chat surface filtered by assignments). Before writing code, confirm the open questions in §10 and the slice plan in §9. Step → confirm → next step; park side-tasks.

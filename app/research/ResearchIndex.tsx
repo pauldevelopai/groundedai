@@ -74,7 +74,7 @@ export default function ResearchIndex({
         }}
       >
         <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
-          Anchor
+          Grounded
         </Link>
         <span style={{ color: '#999' }}>/</span>
         <span style={{ fontSize: 14 }}>🔎 Research</span>
@@ -102,7 +102,7 @@ export default function ResearchIndex({
           )}
         </div>
         <p style={{ color: '#666', fontSize: 14, marginTop: 0 }}>
-          A dossier is the home for one investigation, story, or topic. Upload court filings, regulatory disclosures, financial documents, or any text you're researching — Anchor extracts entities, relationships, key claims, and follow-up questions you can act on.
+          A dossier is the home for one investigation, story, or topic. Upload court filings, regulatory disclosures, financial documents, or any text you're researching — Grounded extracts entities, relationships, key claims, and follow-up questions you can act on.
         </p>
 
         {showNew && canCreate && (

@@ -112,7 +112,7 @@ export default function TranslationWorkspace({
           gap: 12,
         }}
       >
-        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Anchor</Link>
+        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Grounded</Link>
         <span style={{ color: '#999' }}>/</span>
         <span style={{ fontSize: 14 }}>🌐 Translator</span>
         <span style={{ flex: 1 }} />
@@ -516,7 +516,7 @@ function TranslationCard({
               </button>
             </div>
             <p style={{ fontSize: 11, color: '#666', marginTop: 6 }}>
-              On save, Anchor diffs your edit against the model output and proposes glossary entries for any consistent substitutions you made.
+              On save, Grounded diffs your edit against the model output and proposes glossary entries for any consistent substitutions you made.
             </p>
           </div>
         ) : (
@@ -564,7 +564,7 @@ function ProposalsPanel({
         Glossary proposals from your edit ({proposals.length})
       </h4>
       <p style={{ fontSize: 11, color: '#6b5800', margin: '0 0 8px' }}>
-        Anchor noticed you changed these phrases. Type the source-language term that should always translate this way, and we'll add a glossary entry so future translations honour it.
+        Grounded noticed you changed these phrases. Type the source-language term that should always translate this way, and we'll add a glossary entry so future translations honour it.
       </p>
       {proposals.map((p) => (
         <ProposalRow

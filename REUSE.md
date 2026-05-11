@@ -1,6 +1,6 @@
 # Reuse log
 
-Code, schemas, and patterns lifted from other Develop AI codebases into Anchor.
+Code, schemas, and patterns lifted from other Develop AI codebases into Grounded.
 Each entry: what was lifted, from where, the tier, and date.
 
 Source codebases (read-only references — never modify them):
@@ -12,13 +12,13 @@ Source codebases (read-only references — never modify them):
 ## Conventions
 
 - **Module system:** root `"type": "commonjs"` (matches Surepath). Next.js routes under `app/` use ESM `import` syntax — Next's bundler handles it; no Node runtime ESM resolution needed. Workers, scripts, and shared lib code stay CommonJS.
-- **Ports:** Surepath = 3000, Holly server = 3001, Anchor = 3002.
-- **Module-system gotcha:** Holly's `server/` is **ESM** (`import` / `export`), Surepath is **CommonJS** (`require` / `module.exports`). Anchor stays CommonJS at the root. When porting Holly patterns, convert `import x from 'y'` → `const x = require('y')` and named imports accordingly. `__dirname` and `__filename` are available natively in CommonJS — no `fileURLToPath` workarounds needed.
+- **Ports:** Surepath = 3000, Holly server = 3001, Grounded = 3002.
+- **Module-system gotcha:** Holly's `server/` is **ESM** (`import` / `export`), Surepath is **CommonJS** (`require` / `module.exports`). Grounded stays CommonJS at the root. When porting Holly patterns, convert `import x from 'y'` → `const x = require('y')` and named imports accordingly. `__dirname` and `__filename` are available natively in CommonJS — no `fileURLToPath` workarounds needed.
 
 ## Tier definitions
 
 - 🟢 **LIFT** — copy with minimal modification (provider-agnostic, well-isolated).
-- 🟡 **ADAPT** — pattern adopted, code rewritten for Anchor's multi-tenant agent-oriented domain.
+- 🟡 **ADAPT** — pattern adopted, code rewritten for Grounded's multi-tenant agent-oriented domain.
 - 🔴 **REFERENCE** — read for ideas, no code carried across.
 - **methodology** — non-code (RAG content, policy text, schema design).
 
@@ -45,40 +45,40 @@ Concrete plan informed by a read-only walkthrough of Surepath + Holly. Each entr
 
 ### Surepath
 
-| # | Pattern | Source path | Anchor target | Tier | When |
+| # | Pattern | Source path | Grounded target | Tier | When |
 |---|---------|-------------|---------------|------|------|
 | S1 | **Postgres pool** — `pg.Pool` from `DATABASE_URL`, callers use `pool.query(sql, params)` directly | `surepath/db.js` | `anchor/lib/db.js` | 🟢 LIFT | Step 3 |
 | S2 | **Cost / usage logger** — logs Claude tokens (per model), Google services, ElevenLabs into `api_costs` table; live USD→ZAR cache | `surepath/costs.js` | `anchor/lib/costs.js` + `migrations/00X_api_costs.sql` | 🟢 LIFT | Step 4 (with first agent) |
 | S3 | **Robust JSON parser** — handles markdown fences, prose around JSON, trailing commas, unquoted keys, single-quoted strings, newlines in strings; falls back to empty valid response to prevent pipeline crash | `surepath/vision.js` lines 434–476 (`parseVisionResponse`) | `anchor/lib/parse-claude-json.js` | 🟢 LIFT | Step 4 (Verifier) |
 | S4 | **Claude Vision + WHY-chain reasoning** — system prompt builds context (data + RAG + patterns + feedback); response = structured findings with `visual_evidence`, `corroboration`, `severity`, `tier_reason` | `surepath/vision.js` (`analyseBatch`) | Verifier agent's reasoning structure | 🟡 ADAPT | Step 4 (Verifier) — domain-specific (property inspection); adapt schema to newsroom claim-verification |
-| S5 | **Next.js dashboard auth** — JWT in httpOnly cookie (12h), `signToken`/`verifyToken`, `withAuth(handler)` HOF, rate limiter (5 attempts / 15 min lockout), constant-time credential check | `surepath/dashboard/lib/auth.ts` + `surepath/server.js` lines 3–14 | `anchor/app/lib/auth.ts` (Anchor dashboard is Next.js so TS is fine inside `app/`) | 🟢 LIFT | Step 3 (auth) — flag: Surepath uses TypeScript here; align with Anchor's choice |
-| S6 | **Next.js dashboard architecture** — App Router, server-side rendered, calls parent CommonJS service via internal API routes, shares the same `pg.Pool` | `surepath/dashboard/` | `anchor/app/` (top-level since Anchor is Next.js root, not a sub-app) | 🟡 ADAPT | Step 5 (UIs) — Anchor's structure is different from sub-app; pattern still informs |
+| S5 | **Next.js dashboard auth** — JWT in httpOnly cookie (12h), `signToken`/`verifyToken`, `withAuth(handler)` HOF, rate limiter (5 attempts / 15 min lockout), constant-time credential check | `surepath/dashboard/lib/auth.ts` + `surepath/server.js` lines 3–14 | `anchor/app/lib/auth.ts` (Grounded dashboard is Next.js so TS is fine inside `app/`) | 🟢 LIFT | Step 3 (auth) — flag: Surepath uses TypeScript here; align with Grounded's choice |
+| S6 | **Next.js dashboard architecture** — App Router, server-side rendered, calls parent CommonJS service via internal API routes, shares the same `pg.Pool` | `surepath/dashboard/` | `anchor/app/` (top-level since Grounded is Next.js root, not a sub-app) | 🟡 ADAPT | Step 5 (UIs) — Grounded's structure is different from sub-app; pattern still informs |
 | S7 | **Twilio WhatsApp webhook + signature verification + conversation state machine** | `surepath/whatsapp.js` (lines 1–400) | `anchor/server/webhooks/whatsapp.js` | 🟡 ADAPT | Step 8 (deferred to post-MVP) — capture shape now; adapt conversation-state to workflow-output delivery |
-| S8 | **Local filesystem storage helper** | `surepath/storage.js` (`saveBuffer`, `saveFile`) | Not lifted — Anchor uses S3 from Step 4 | 🔴 REFERENCE | — |
-| S9 | **Claude retry logic** — **NOT FOUND in Surepath.** Anchor's Claude wrapper should add retry-with-backoff (rate-limit + transient errors) since Surepath's wrapper just bubbles errors. | — | New: `anchor/lib/claude.js` | new-build | Step 4 |
+| S8 | **Local filesystem storage helper** | `surepath/storage.js` (`saveBuffer`, `saveFile`) | Not lifted — Grounded uses S3 from Step 4 | 🔴 REFERENCE | — |
+| S9 | **Claude retry logic** — **NOT FOUND in Surepath.** Grounded's Claude wrapper should add retry-with-backoff (rate-limit + transient errors) since Surepath's wrapper just bubbles errors. | — | New: `anchor/lib/claude.js` | new-build | Step 4 |
 
 ### Holly
 
-| # | Pattern | Source path | Anchor target | Tier | When |
+| # | Pattern | Source path | Grounded target | Tier | When |
 |---|---------|-------------|---------------|------|------|
 | H1 | **Express server entry + middleware order** — CORS → JSON parser → cookie parser → public routes → rate-limited `/api/v1` → admin-gated `/api/admin/...` | `holly/server/index.js` | `anchor/server/index.js` (or Next.js route handlers, depending on Step 5 architecture choice) | 🟢 LIFT | Step 3 |
 | H2 | **JWT + bcrypt auth** — login, register, logout; httpOnly cookie (7d expiry); `requireAuth` middleware reads `req.cookies.<token>`; `requireRole('admin')` middleware | `holly/server/routes/auth.js` + `holly/server/middleware/auth.js` | `anchor/server/routes/auth.js` + `anchor/server/middleware/auth.js` | 🟢 LIFT | Step 3 |
 | H3 | **Migration runner** — home-grown, reads `.sql` files from `migrations/` dir, tracks completed in a `migrations` table, BEGIN/COMMIT/ROLLBACK on each. No Knex/TypeORM. | `holly/server/db/migrate.js` | `anchor/server/db/migrate.js` + `anchor/server/db/migrations/` | 🟢 LIFT | Step 3 (first migration creates `newsrooms`, `users`, `audit_log`) |
 | H4 | **Google OAuth2 + Gmail API** — `generateAuthUrl()` → callback handler stores access + refresh tokens in DB; `getAuthedClient()` auto-refreshes expired tokens | `holly/server/services/gmail.js` | Informs `anchor/server/services/drive.js` (Drive uses **service account**, not OAuth — but the token-refresh + auto-retry shape transfers) | 🟡 ADAPT | Step 4 (Drive mirror) and Step 7 (governance corpus ingest) |
-| H5 | **Pluggable LLM dispatch** — Anthropic / Groq / Ollama backends behind one `callClaudeClassifier()` function; Groq throttle (45ms global) for free-tier rate limit | `holly/server/services/claude.js` lines 1–120 | Anchor stays Anthropic-only for MVP; preserve the dispatch shape so adding fallback providers is easy later | 🟡 ADAPT | Step 4 |
-| H6 | **Multi-tenant via array of sector_ids** — `team_members(role, sector_ids UUID[], holly_access bool, is_active bool)`; downstream filtering by sector | `holly/server/db/migrations/004_create_team_members.sql` + `routes/auth.js` | Anchor uses **explicit `newsroom_id` foreign keys** instead of arrays (cleaner queries, better isolation guarantee). Holly's pattern is reference-only. | 🔴 REFERENCE | Step 3 |
+| H5 | **Pluggable LLM dispatch** — Anthropic / Groq / Ollama backends behind one `callClaudeClassifier()` function; Groq throttle (45ms global) for free-tier rate limit | `holly/server/services/claude.js` lines 1–120 | Grounded stays Anthropic-only for MVP; preserve the dispatch shape so adding fallback providers is easy later | 🟡 ADAPT | Step 4 |
+| H6 | **Multi-tenant via array of sector_ids** — `team_members(role, sector_ids UUID[], holly_access bool, is_active bool)`; downstream filtering by sector | `holly/server/db/migrations/004_create_team_members.sql` + `routes/auth.js` | Grounded uses **explicit `newsroom_id` foreign keys** instead of arrays (cleaner queries, better isolation guarantee). Holly's pattern is reference-only. | 🔴 REFERENCE | Step 3 |
 | H7 | **Admin route guarding** — `const admin = express.Router(); admin.use(requireAuth); admin.use(requireRole('admin')); app.use('/api/admin', admin)` | `holly/server/index.js` line 149+ | `anchor/server/index.js` (or Next.js route guards) | 🟢 LIFT | Step 3 |
 | H8 | **API rate limiting on public endpoints** | `holly/server/middleware/api-rate-limit.js` (referenced from `index.js` line 106) | `anchor/server/middleware/rate-limit.js` | 🟢 LIFT | Step 3 |
 
 ## Notes from Step 1 walkthrough
 
-1. **No S3 helper in either codebase.** Surepath stores files locally and serves via Next.js static. Holly doesn't have an upload handler. Anchor has to build the S3 uploader from scratch in Step 4. Use `@aws-sdk/client-s3` (already in Surepath's deps so the API is familiar). Mirror to Drive per the Anchor briefing.
+1. **No S3 helper in either codebase.** Surepath stores files locally and serves via Next.js static. Holly doesn't have an upload handler. Grounded has to build the S3 uploader from scratch in Step 4. Use `@aws-sdk/client-s3` (already in Surepath's deps so the API is familiar). Mirror to Drive per the Grounded briefing.
 
-2. **No Claude retry/backoff anywhere.** Both codebases let Anthropic SDK errors bubble. Anchor's Claude wrapper (`lib/claude.js`) should add retry-with-exponential-backoff for `429`, `529`, and connection errors. Hook the cost logger (S2) into success path.
+2. **No Claude retry/backoff anywhere.** Both codebases let Anthropic SDK errors bubble. Grounded's Claude wrapper (`lib/claude.js`) should add retry-with-exponential-backoff for `429`, `529`, and connection errors. Hook the cost logger (S2) into success path.
 
-3. **Multi-tenancy.** Surepath has none. Holly uses `sector_ids UUID[]` arrays (clever but loses query-planner clarity and FK constraints). Anchor uses explicit `newsroom_id UUID NOT NULL REFERENCES newsrooms(id)` on every per-newsroom row. Locked in for Step 3.
+3. **Multi-tenancy.** Surepath has none. Holly uses `sector_ids UUID[]` arrays (clever but loses query-planner clarity and FK constraints). Grounded uses explicit `newsroom_id UUID NOT NULL REFERENCES newsrooms(id)` on every per-newsroom row. Locked in for Step 3.
 
-4. **TypeScript inside `app/`.** Surepath's dashboard is TypeScript. Anchor's Next.js `app/` can be JS or TS — TS is the Next.js default and has good DX with the App Router. Decision deferred to Step 2 architectural locking.
+4. **TypeScript inside `app/`.** Surepath's dashboard is TypeScript. Grounded's Next.js `app/` can be JS or TS — TS is the Next.js default and has good DX with the App Router. Decision deferred to Step 2 architectural locking.
 
 5. **Holly is ESM, Surepath is CommonJS.** Listed in Conventions above. Watch when porting Holly's `import` statements.
 

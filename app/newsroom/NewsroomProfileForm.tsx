@@ -145,7 +145,7 @@ export default function NewsroomProfileForm({
           gap: 12,
         }}
       >
-        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Anchor</Link>
+        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Grounded</Link>
         <span style={{ color: '#999' }}>/</span>
         <span style={{ fontSize: 14 }}>📋 Newsroom profile</span>
         <span style={{ flex: 1 }} />
@@ -164,7 +164,7 @@ export default function NewsroomProfileForm({
       <form onSubmit={onSave} style={{ maxWidth: 880, margin: '0 auto', padding: '24px 20px' }}>
         <h1 style={{ margin: '0 0 4px', fontSize: 24 }}>{newsroom.name}</h1>
         <p style={{ color: '#666', fontSize: 14, marginTop: 0 }}>
-          The newsroom profile is the load-bearing context the agents read before they work for you. Fundraiser uses it to fill grant briefs and donor reports. Audience uses it to seed audience clones grounded in YOUR readers. Producer and Drafter use it to shape the voice. Keep it current — the more concrete it is, the better the agents perform.
+          The newsroom profile is the load-bearing context the agents read before they work for you. Fundraiser uses it to fill grant briefs and donor reports. Audience Analytics Manager uses it to ground analytics consultations in YOUR readers. Audio &amp; Video Producer and Copywriter use it to shape the voice. Keep it current — the more concrete it is, the better the agents perform.
         </p>
 
         {!canEdit && (
@@ -240,7 +240,7 @@ export default function NewsroomProfileForm({
         </Section>
 
         <Section title="House style">
-          <Field label="Voice" hint="How your newsroom sounds. Drafter and Producer pull this verbatim.">
+          <Field label="Voice" hint="How your newsroom sounds. Copywriter and the Audio &amp; Video Producer pull this verbatim.">
             <textarea value={state.voice || ''} disabled={!canEdit} onChange={(e) => set('voice', e.target.value)} rows={3} style={textareaStyle} placeholder="e.g. Clear, sceptical, accessible. We avoid jargon and explain every acronym." />
           </Field>
           <Field label="Style notes" hint="Concrete rules — punctuation, units, capitalisation, what you do and don't do.">

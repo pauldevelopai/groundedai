@@ -152,7 +152,7 @@ export default function StarterPicker({
           <div style={{ flex: 1 }}>
             <h1 style={{ margin: 0, fontSize: 24 }}>What problem would you like to solve?</h1>
             <p style={{ margin: '6px 0 0', color: '#444', fontSize: 15 }}>
-              <strong>What product would you like to build?</strong> Pick one. Anchor will set up the workflow with the right problem framing, instructions for your team, and a starter graph you can refine.
+              <strong>What product would you like to build?</strong> Pick one. Grounded will set up the workflow with the right problem framing, instructions for your team, and a starter graph you can refine.
             </p>
           </div>
           <button
@@ -240,7 +240,7 @@ export default function StarterPicker({
           }}
         >
           <span style={{ color: '#666' }}>
-            Don't see what you need? Start blank and use <em>Describe &amp; build</em> on the canvas — Anchor will compose a workflow from your description.
+            Don't see what you need? Start blank and use <em>Describe &amp; build</em> on the canvas — Grounded will compose a workflow from your description.
           </span>
           <button
             onClick={onBlank}
@@ -320,7 +320,7 @@ function ConfirmStarter({
 
         <section style={{ background: '#fdfdfd', border: '1px solid #e5e5e5', borderRadius: 8, padding: 14 }}>
           <h3 style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, color: '#666', margin: '0 0 6px' }}>
-            What Anchor will set up
+            What Grounded will set up
           </h3>
           {nodeCount > 0 ? (
             <p style={{ margin: 0, fontSize: 14, color: '#333' }}>
@@ -333,7 +333,7 @@ function ConfirmStarter({
             </p>
           ) : (
             <p style={{ margin: 0, fontSize: 14, color: '#333' }}>
-              An empty canvas with the problem framing pre-filled. Use <em>Describe &amp; build</em> to have Anchor compose the graph for you, or drag agents in manually.
+              An empty canvas with the problem framing pre-filled. Use <em>Describe &amp; build</em> to have Grounded compose the graph for you, or drag agents in manually.
             </p>
           )}
         </section>
