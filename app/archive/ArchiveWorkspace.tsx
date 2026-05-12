@@ -113,6 +113,22 @@ const TAB_LABELS: Record<string, string> = {
   entities: 'Entities',
   documents: 'Documents',
   types: 'Entity types',
+  exports: 'Exports',
+};
+
+type ExportRow = {
+  id: string;
+  title: string;
+  filters: any;
+  counts: { documents?: number; entities?: number; mentions?: number; relationships?: number; claims?: number; entity_types?: number };
+  content_hash: string | null;
+  public_key: string | null;
+  size_bytes: number | null;
+  status: 'pending' | 'generating' | 'ready' | 'failed';
+  error: string | null;
+  created_at: string;
+  completed_at: string | null;
+  expires_at: string | null;
 };
 
 function shortDate(iso: string | null | undefined) {
@@ -202,6 +218,7 @@ export default function ArchiveWorkspace({
         {tab === 'entities' && <EntitiesRegion entityTypes={entityTypes} canEdit={canEdit} />}
         {tab === 'documents' && <DocumentsRegion canEdit={canEdit} />}
         {tab === 'types' && <TypesRegion entityTypes={entityTypes} canEdit={canEdit} onTypeAdded={(t) => setEntityTypes([...entityTypes, t])} />}
+        {tab === 'exports' && <ExportsRegion canEdit={canEdit} />}
       </div>
     </main>
   );
@@ -728,6 +745,181 @@ function TypesRegion({ entityTypes, canEdit, onTypeAdded }: { entityTypes: Entit
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+// ─── Exports tab ───────────────────────────────────────────────────────────
+
+function ExportsRegion({ canEdit }: { canEdit: boolean }) {
+  const [exports, setExports] = useState<ExportRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [title, setTitle] = useState('');
+  const [beat, setBeat] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [anonymise, setAnonymise] = useState(false);
+  const [includeClaims, setIncludeClaims] = useState(true);
+  const [includeRelationships, setIncludeRelationships] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/archive/exports');
+      const j = await res.json();
+      setExports(j.exports || []);
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setGenerating(true); setError(null);
+    try {
+      const filters: any = {};
+      if (beat.trim()) filters.beat = beat.trim();
+      if (fromDate) filters.fromDate = fromDate;
+      if (toDate) filters.toDate = toDate;
+      if (anonymise) filters.anonymiseByline = true;
+      if (!includeClaims) filters.includeClaims = false;
+      if (!includeRelationships) filters.includeRelationships = false;
+      const res = await fetch('/api/archive/exports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title || undefined, filters }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+      setShowForm(false);
+      setTitle(''); setBeat(''); setFromDate(''); setToDate(''); setAnonymise(false);
+      setIncludeClaims(true); setIncludeRelationships(true);
+      await load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function remove(id: string) {
+    if (!confirm('Delete this export? The signed bundle file will also be removed from disk.')) return;
+    const res = await fetch('/api/archive/exports/' + id, { method: 'DELETE' });
+    if (!res.ok) {
+      const j = await res.json();
+      alert('Delete failed: ' + (j.error || res.status));
+      return;
+    }
+    await load();
+  }
+
+  function fmtBytes(n: number | null) {
+    if (!n) return '—';
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1024 / 1024).toFixed(2) + ' MB';
+  }
+
+  return (
+    <div>
+      <div style={panel()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <h2 style={{ margin: 0, fontSize: 18 }}>Signed dataset exports</h2>
+          {canEdit && !showForm && (
+            <button onClick={() => setShowForm(true)} style={{ padding: '6px 12px', fontSize: 13, background: '#0066cc', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}>+ New export</button>
+          )}
+        </div>
+        <p style={{ color: '#666', fontSize: 13, margin: 0 }}>
+          Generate a self-contained, ed25519-signed JSON bundle of this newsroom's knowledge graph. Each export carries its own content hash + signature so consumers can verify the data has not been tampered with — independent of any Grounded service. Useful for: licensing to other newsrooms, research datasets, archival pinning.
+        </p>
+      </div>
+
+      {showForm && canEdit && (
+        <form onSubmit={submit} style={panel()}>
+          <h3 style={{ marginTop: 0, fontSize: 15 }}>New export</h3>
+          <label style={{ fontSize: 12, display: 'block' }}>Title (optional)<br />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. SA politics, 2024" style={{ width: '100%', padding: 6, fontSize: 13, border: '1px solid #ccc', borderRadius: 4, marginTop: 2 }} />
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 10 }}>
+            <label style={{ fontSize: 12 }}>Beat filter<br />
+              <input value={beat} onChange={(e) => setBeat(e.target.value)} placeholder="e.g. politics" style={{ width: '100%', padding: 6, fontSize: 13, border: '1px solid #ccc', borderRadius: 4, marginTop: 2 }} />
+            </label>
+            <label style={{ fontSize: 12 }}>From date<br />
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} style={{ width: '100%', padding: 6, fontSize: 13, border: '1px solid #ccc', borderRadius: 4, marginTop: 2 }} />
+            </label>
+            <label style={{ fontSize: 12 }}>To date<br />
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} style={{ width: '100%', padding: 6, fontSize: 13, border: '1px solid #ccc', borderRadius: 4, marginTop: 2 }} />
+            </label>
+          </div>
+          <div style={{ marginTop: 10, display: 'flex', gap: 16, fontSize: 13 }}>
+            <label><input type="checkbox" checked={includeClaims} onChange={(e) => setIncludeClaims(e.target.checked)} /> Include claims</label>
+            <label><input type="checkbox" checked={includeRelationships} onChange={(e) => setIncludeRelationships(e.target.checked)} /> Include relationships</label>
+            <label><input type="checkbox" checked={anonymise} onChange={(e) => setAnonymise(e.target.checked)} /> Anonymise byline</label>
+          </div>
+          {error && <div style={{ marginTop: 10, color: '#900', fontSize: 12 }}>{error}</div>}
+          <div style={{ marginTop: 12 }}>
+            <button type="submit" disabled={generating} style={{ padding: '6px 12px', fontSize: 13, background: '#0066cc', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+              {generating ? 'Generating…' : 'Generate signed bundle'}
+            </button>
+            <button type="button" onClick={() => setShowForm(false)} style={{ marginLeft: 8, padding: '6px 12px', fontSize: 13, background: 'none', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </form>
+      )}
+
+      <div style={panel()}>
+        {loading && <div style={{ color: '#666', fontSize: 13 }}>Loading…</div>}
+        {!loading && exports.length === 0 && <div style={{ color: '#666', fontSize: 13 }}>No exports yet.</div>}
+        {!loading && exports.length > 0 && (
+          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: '#666', borderBottom: '1px solid #eee' }}>
+                <th style={{ padding: '6px 4px' }}>Title</th>
+                <th style={{ padding: '6px 4px' }}>Created</th>
+                <th style={{ padding: '6px 4px' }}>Counts</th>
+                <th style={{ padding: '6px 4px' }}>Size</th>
+                <th style={{ padding: '6px 4px' }}>Status</th>
+                <th style={{ padding: '6px 4px' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {exports.map((e) => (
+                <tr key={e.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                  <td style={{ padding: '6px 4px' }}>
+                    <div style={{ fontWeight: 500 }}>{e.title}</div>
+                    {e.content_hash && (
+                      <div style={{ color: '#999', fontSize: 10, fontFamily: 'monospace' }} title="SHA-256 of canonical data">
+                        hash: {e.content_hash.slice(0, 20)}…
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: '6px 4px', color: '#666' }}>{shortDate(e.created_at)}</td>
+                  <td style={{ padding: '6px 4px', color: '#666', fontSize: 11 }}>
+                    {e.counts.documents ?? 0}d / {e.counts.entities ?? 0}e / {e.counts.claims ?? 0}c
+                  </td>
+                  <td style={{ padding: '6px 4px', color: '#666' }}>{fmtBytes(e.size_bytes)}</td>
+                  <td style={{ padding: '6px 4px' }}>
+                    <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 3, background: e.status === 'ready' ? '#dcfce7' : e.status === 'failed' ? '#fee2e2' : '#fef9c3', color: e.status === 'ready' ? '#166534' : e.status === 'failed' ? '#991b1b' : '#854d0e' }}>
+                      {e.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: '6px 4px' }}>
+                    {e.status === 'ready' && (
+                      <a href={'/api/archive/exports/' + e.id + '?download=1'} style={{ padding: '3px 8px', fontSize: 11, background: '#0066cc', color: 'white', borderRadius: 3, textDecoration: 'none', marginRight: 6 }}>Download</a>
+                    )}
+                    {canEdit && (
+                      <button onClick={() => remove(e.id)} style={{ padding: '3px 8px', fontSize: 11, background: 'none', border: '1px solid #ccc', borderRadius: 3, cursor: 'pointer' }}>Delete</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
