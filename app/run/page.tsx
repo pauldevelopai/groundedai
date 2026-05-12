@@ -90,6 +90,8 @@ export default async function RunIndex() {
         </span>
         <Link href="/newsroom" style={{ fontSize: 13, color: '#0066cc' }}>Profile →</Link>
         <Link href="/verifier" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Verifier →</Link>
+
+        <Link href="/archive" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Archivist →</Link>
         <Link href="/research" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Research →</Link>
         <Link href="/translation" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Translator →</Link>
         <Link href="/producer" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audio & Video Producer →</Link>
