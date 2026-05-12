@@ -1,0 +1,406 @@
+# Topic taxonomy — pan-African journalism baseline.
+#
+# Used by lib/copywriter/topic-tags.js (scoreArticle) as a coarse signal of
+# what an article is about. Newsrooms can override this list by setting
+# newsroom_profile.metadata.topic_tags — overrides are merged additively
+# (see lib/newsroom-profile/merge-overrides.js).
+#
+# Curated for African newsroom journalism. Primary markets: South Africa,
+# Zimbabwe, Zambia, Kenya. Keyword lists are deliberately mixed: a few
+# universal terms ("election") plus continental specifics ("AfCFTA",
+# "ECOWAS"). Editable freely — the file ships as a sensible default, not
+# as a fixed taxonomy.
+#
+# Matching is case-insensitive on word boundaries. Multi-word phrases match
+# as exact substrings. Scoring is matched-keyword occurrences per 100 words,
+# capped at 1.0.
+
+topics:
+  politics_governance:
+    label: "Politics & governance"
+    keywords:
+      - parliament
+      - government
+      - minister
+      - cabinet
+      - ruling party
+      - opposition
+      - constitutional
+      - constitution
+      - bill
+      - law
+      - legislation
+      - regulation
+      - policy
+      - election
+      - poll
+      - voting
+      - manifesto
+      - coalition
+      - ANC
+      - ZANU-PF
+      - PF
+      - KANU
+      - presidency
+      - president
+      - vice president
+      - prime minister
+      - speaker
+      - MP
+      - parastatal
+      - public service
+      - civil service
+
+  economy_trade:
+    label: "Economy & trade"
+    keywords:
+      - inflation
+      - GDP
+      - reserve bank
+      - central bank
+      - currency
+      - rand
+      - kwacha
+      - shilling
+      - dollar
+      - tariff
+      - trade
+      - import
+      - export
+      - AfCFTA
+      - SADC
+      - EAC
+      - ECOWAS
+      - budget
+      - fiscal
+      - deficit
+      - debt
+      - IMF
+      - World Bank
+      - manufacturing
+      - mining
+      - agriculture
+      - SMME
+      - SME
+      - tax
+      - revenue
+      - SARS
+      - ZIMRA
+      - ZRA
+      - KRA
+      - stock exchange
+      - JSE
+      - ZSE
+      - LuSE
+      - NSE
+
+  climate_environment:
+    label: "Climate & environment"
+    keywords:
+      - climate change
+      - drought
+      - floods
+      - cyclone
+      - heatwave
+      - emissions
+      - carbon
+      - renewable
+      - solar
+      - wind energy
+      - load shedding
+      - load-shedding
+      - electricity crisis
+      - water crisis
+      - pollution
+      - conservation
+      - biodiversity
+      - ecosystem
+      - wildlife
+      - poaching
+      - rhino
+      - elephant
+      - Kruger
+      - deforestation
+      - desertification
+      - just transition
+      - COP
+
+  health:
+    label: "Health"
+    keywords:
+      - HIV
+      - AIDS
+      - TB
+      - tuberculosis
+      - malaria
+      - cholera
+      - typhoid
+      - Ebola
+      - mpox
+      - COVID
+      - vaccination
+      - vaccine
+      - immunisation
+      - WHO
+      - Ministry of Health
+      - hospital
+      - clinic
+      - public health
+      - maternal mortality
+      - infant mortality
+      - mental health
+      - epidemic
+      - outbreak
+      - quarantine
+      - antiretroviral
+      - ART
+      - GAVI
+      - Global Fund
+
+  conflict_security:
+    label: "Conflict & security"
+    keywords:
+      - war
+      - conflict
+      - insurgency
+      - terrorism
+      - militia
+      - rebel
+      - ceasefire
+      - peacekeeping
+      - AU mission
+      - UN mission
+      - troops
+      - soldier
+      - military
+      - police
+      - crime
+      - gang
+      - protest
+      - riot
+      - violence
+      - assassination
+      - coup
+      - putsch
+      - mutiny
+      - Boko Haram
+      - Al-Shabaab
+      - ISWAP
+      - M23
+      - RSF
+      - SPLA
+      - Wagner
+      - mercenary
+
+  media_freedom:
+    label: "Media freedom"
+    keywords:
+      - press freedom
+      - press council
+      - journalism
+      - journalist
+      - reporter
+      - editor
+      - censorship
+      - press card
+      - newspaper
+      - radio station
+      - broadcaster
+      - SABC
+      - ZBC
+      - KBC
+      - regulator
+      - ICASA
+      - ZACRAS
+      - CAK
+      - defamation
+      - SLAPP
+      - access to information
+      - freedom of expression
+      - cybercrime act
+      - data protection
+      - POPIA
+      - public interest
+
+  africa_world:
+    label: "Africa-world relations"
+    keywords:
+      - China
+      - Russia
+      - United States
+      - European Union
+      - EU
+      - BRICS
+      - G20
+      - UN Security Council
+      - sanctions
+      - aid
+      - foreign direct investment
+      - FDI
+      - bilateral
+      - multilateral
+      - diaspora
+      - Belt and Road
+      - AGOA
+      - Africa Continental Free Trade
+      - Putin
+      - Lavrov
+      - Xi Jinping
+      - Biden
+      - Trump
+      - Macron
+      - Sunak
+      - Starmer
+      - Russia-Africa summit
+      - FOCAC
+
+  justice_rule_of_law:
+    label: "Justice & rule of law"
+    keywords:
+      - high court
+      - constitutional court
+      - supreme court
+      - magistrate
+      - prosecutor
+      - NPA
+      - DPP
+      - Hawks
+      - corruption
+      - graft
+      - state capture
+      - Zondo
+      - inquiry
+      - commission of inquiry
+      - judge
+      - judgement
+      - judgment
+      - ruling
+      - sentenced
+      - acquitted
+      - charged
+      - indictment
+      - witness
+      - testimony
+      - probe
+      - investigation
+      - whistleblower
+      - SAPS
+      - ZRP
+      - ZP
+      - DCI
+
+  gender_society:
+    label: "Gender & society"
+    keywords:
+      - gender
+      - women
+      - LGBTQ
+      - LGBT
+      - GBV
+      - gender-based violence
+      - femicide
+      - rape
+      - sexual assault
+      - reproductive rights
+      - abortion
+      - child marriage
+      - youth
+      - unemployment
+      - inequality
+      - poverty
+      - housing
+      - education
+      - school
+      - university
+      - SADTU
+      - student protest
+      - feesmustfall
+      - traditional leaders
+      - chief
+      - tribal
+      - culture
+      - heritage
+
+  technology_innovation:
+    label: "Technology & innovation"
+    keywords:
+      - startup
+      - fintech
+      - mobile money
+      - M-Pesa
+      - EcoCash
+      - mobile network
+      - MTN
+      - Vodacom
+      - Safaricom
+      - Airtel
+      - Telkom
+      - Econet
+      - broadband
+      - data
+      - cybersecurity
+      - data centre
+      - artificial intelligence
+      - AI
+      - machine learning
+      - blockchain
+      - cryptocurrency
+      - Bitcoin
+      - cloud computing
+      - software
+      - app
+      - platform
+      - 5G
+      - tech hub
+
+# Utility lists — used by scoreArticle alongside the topic buckets.
+
+strong_verbs:
+  - announced
+  - launched
+  - revealed
+  - sparked
+  - reversed
+  - condemned
+  - confronted
+  - exposed
+  - rejected
+  - vowed
+  - denounced
+  - demanded
+  - blocked
+  - lifted
+  - banned
+  - suspended
+  - dismissed
+  - fired
+  - resigned
+  - arrested
+  - charged
+  - indicted
+  - sentenced
+  - acquitted
+  - released
+  - signed
+  - vetoed
+  - ratified
+  - escalated
+  - intervened
+
+attribution_words:
+  # Multi-word phrases first so the matcher hits them before "said"/etc.
+  - according to
+  - quoted as saying
+  - is reported to
+  - has been reported
+  - sources say
+  - sources told
+  - said in a statement
+  - told the
+  - confirmed
+  - stated
+  - alleged
+  - reportedly
+  - said
+  - told
+  - claimed
