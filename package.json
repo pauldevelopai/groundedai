@@ -10,6 +10,7 @@
     "start": "next start -p 3002",
     "migrate": "node db/migrate.js",
     "seed": "node db/seed.js",
+    "worker": "node scripts/jobs/worker.js",
     "lint": "next lint",
     "test": "node --test tests/"
   },
@@ -25,6 +26,7 @@
     "next": "^15.0.3",
     "pdf-parse": "^2.4.5",
     "pg": "^8.13.1",
+    "pg-boss": "^12.18.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

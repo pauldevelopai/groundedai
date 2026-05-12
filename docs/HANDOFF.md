@@ -177,6 +177,24 @@ unset ANTHROPIC_API_KEY && npm run dev
 
 **Why `unset`:** Paul's shell exports `ANTHROPIC_API_KEY=""` (empty string) from Claude for Desktop's launch context. Empty string is "set" as far as dotenv and Next.js are concerned, so neither overrides it from `.env`. Calls fail with `"ANTHROPIC_API_KEY is not set."` despite the key being in `.env`. Always prepend `unset ANTHROPIC_API_KEY && ` to local dev commands.
 
+### Background job worker (Step 1 onward)
+
+Run alongside the web app in a second terminal. Required by Researcher's
+deep crawler (Step 3), the style-fingerprint extractor (Step 4), and any
+future async work. Pulls jobs off the same Postgres database (pg-boss
+schema), no separate broker:
+
+```bash
+# Terminal 1
+unset ANTHROPIC_API_KEY && npm run dev      # Next.js on :3002
+
+# Terminal 2
+unset ANTHROPIC_API_KEY && npm run worker   # pg-boss worker
+```
+
+The worker creates a `pgboss` schema on first run (isolated from `public.*`).
+Stop with Ctrl-C — graceful shutdown waits for in-flight jobs.
+
 Alternative for pure-Node scripts (`db/migrate.js`, `db/seed.js`, future workers): use `dotenv.config({ override: true })` instead of plain `dotenv.config()`.
 
 ### First embedding run
