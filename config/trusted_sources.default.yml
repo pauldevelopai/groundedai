@@ -1,0 +1,147 @@
+# Trusted-sources allowlist — pan-African journalism baseline.
+#
+# Annotation only — does NOT block scrapes of non-listed URLs. The scrape
+# returns `trustedSource: true/false` plus a `trustedReason` hint so the
+# Researcher (and any consumer) can weight credibility. Editors override
+# with newsroom_profile.metadata.trusted_sources (same shape) — see
+# lib/newsroom-profile/merge-overrides.js.
+#
+# Categories:
+#   pan_continental   wire services + cross-Africa outlets
+#   south_africa      SA outlets
+#   zimbabwe          ZW outlets
+#   zambia            ZM outlets
+#   kenya             KE outlets
+#   nigeria           NG outlets
+#   ghana             GH outlets
+#   official_records  statistics agencies, registries, central banks, regulators
+#   global_reference  global journalism / press-freedom references
+#
+# Entries are apex domains (without scheme, www prefix optional in matchers).
+# The matcher compares apex-down so subdomains are covered automatically.
+
+trusted_sources:
+  pan_continental:
+    - reuters.com
+    - apnews.com
+    - bbc.com
+    - bbc.co.uk
+    - bloomberg.com
+    - aljazeera.com
+    - allafrica.com
+    - afp.com
+    - africanews.com
+    - theguardian.com
+    - ft.com
+    - economist.com
+    - thecontinent.org
+
+  south_africa:
+    - news24.com
+    - timeslive.co.za
+    - businesslive.co.za
+    - mg.co.za                  # Mail & Guardian
+    - dailymaverick.co.za
+    - amabhungane.org
+    - iol.co.za                 # Independent Online (Sekunjalo — flag in editor)
+    - sundaytimes.co.za
+    - sowetanlive.co.za
+    - citizen.co.za
+    - 702.co.za
+    - ewn.co.za                 # Eyewitness News
+    - sabcnews.com
+    - moneyweb.co.za
+    - groundup.org.za
+    - news24.com/citypress
+
+  zimbabwe:
+    - newsday.co.zw
+    - newzimbabwe.com
+    - thezimbabwemail.com
+    - zimlive.com
+    - zimeye.net
+    - bulawayo24.com
+    - 263chat.com
+    - herald.co.zw              # state-aligned — flag in editor
+    - chronicle.co.zw           # state-aligned — flag in editor
+    - centerforinnovativejournalism.org
+
+  zambia:
+    - diggers.news               # News Diggers
+    - lusakatimes.com
+    - lusakavoice.com
+    - znbc.co.zm                # state-aligned — flag in editor
+    - mwebantu.com
+    - thezambian.com
+    - the-mast.online
+    - daily-mail.co.zm
+
+  kenya:
+    - nation.africa             # Daily Nation
+    - standardmedia.co.ke
+    - the-star.co.ke
+    - businessdailyafrica.com
+    - capitalfm.co.ke
+    - citizen.digital
+    - nationmediagroup.com
+    - africa.businessinsider.com
+
+  nigeria:
+    - premiumtimesng.com
+    - punchng.com
+    - guardian.ng
+    - thecable.ng
+    - businessday.ng
+    - vanguardngr.com
+    - dailytrust.com
+    - thisdaylive.com
+
+  ghana:
+    - graphic.com.gh
+    - myjoyonline.com
+    - citinewsroom.com
+    - ghanaweb.com
+    - peacefmonline.com
+
+  official_records:
+    # Stats agencies
+    - statssa.gov.za
+    - zimstat.co.zw
+    - zamstats.gov.zm
+    - knbs.or.ke
+    - nigerianstat.gov.ng
+    - statsghana.gov.gh
+    # Central banks
+    - resbank.co.za             # SARB
+    - rbz.co.zw
+    - boz.zm
+    - centralbank.go.ke
+    - cbn.gov.ng
+    - bog.gov.gh
+    # Registries + regulators
+    - cipc.co.za                # Companies and Intellectual Property Commission
+    - judiciary.gov.za
+    - capemag.org.za            # Constitutional Court Bench (CCT) feeds
+    - icasa.org.za
+    # African Union + regional bodies
+    - au.int
+    - sadc.int
+    - ecowas.int
+    - eac.int
+    - afdb.org                  # African Development Bank
+    # Multilaterals (Africa-focused references)
+    - worldbank.org
+    - imf.org
+    - undp.org
+    - unhcr.org
+    - who.int
+
+  global_reference:
+    - niemanlab.org
+    - poynter.org
+    - reutersinstitute.politics.ox.ac.uk
+    - cpj.org                   # Committee to Protect Journalists
+    - rsf.org                   # Reporters Without Borders
+    - misa.org                  # Media Institute of Southern Africa
+    - cipesa.org
+    - icij.org                  # International Consortium of Investigative Journalists
