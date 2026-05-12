@@ -26,8 +26,8 @@ const HANDLER_MODULES = [
   // Step 3 — deep crawler fan-out + per-URL scrape
   require('../../lib/jobs/handlers/research-crawl'),
   require('../../lib/jobs/handlers/research-scrape-one'),
-  // Step 4 will add:
-  //   require('../../lib/jobs/handlers/style-fingerprint'),
+  // Step 4 — style-fingerprint analyser
+  require('../../lib/jobs/handlers/style-fingerprint'),
 ];
 
 // Built-in smoke handler — proves the wire works end-to-end without any
