@@ -23,9 +23,9 @@ const { getBoss, work, stop } = require('../../lib/jobs/boss');
 // handler is a one-line addition to HANDLER_MODULES.
 
 const HANDLER_MODULES = [
-  // Step 3 will add:
-  //   require('../../lib/jobs/handlers/research-crawl'),
-  //   require('../../lib/jobs/handlers/research-scrape-one'),
+  // Step 3 — deep crawler fan-out + per-URL scrape
+  require('../../lib/jobs/handlers/research-crawl'),
+  require('../../lib/jobs/handlers/research-scrape-one'),
   // Step 4 will add:
   //   require('../../lib/jobs/handlers/style-fingerprint'),
 ];
