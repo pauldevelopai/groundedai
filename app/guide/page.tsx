@@ -12,6 +12,7 @@ import { getCurrentSession } from '@/app/lib/session';
 import { list as listAgents } from '@/lib/agents/registry';
 import type { AgentMeta, AgentConfigField } from '@/app/builder/BuilderShell';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
+import GlobalNav from '@/app/components/GlobalNav';
 import { EXTERNAL_TOOLS } from '@/lib/external-tools';
 
 type AgentSection = { number: number; name: string; slug: string; canonicalText: string };
@@ -52,39 +53,7 @@ export default async function GuidePage() {
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
-      <header
-        style={{
-          background: 'white',
-          borderBottom: '1px solid #e5e5e5',
-          padding: '14px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
-        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
-          Grounded
-        </Link>
-        <span style={{ color: '#999' }}>/</span>
-        <span style={{ fontSize: 14 }}>How to use Grounded</span>
-        <span style={{ flex: 1 }} />
-        {session ? (
-          <>
-            <Link href="/run" style={{ fontSize: 13, color: '#0066cc' }}>Run →</Link>
-            {(session.role === 'builder' || session.role === 'admin') && (
-              <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
-            )}
-            {session.role === 'admin' && (
-              <Link href="/team" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Team →</Link>
-            )}
-          </>
-        ) : (
-          <Link href="/login" style={{ fontSize: 13, color: '#0066cc' }}>Sign in →</Link>
-        )}
-        <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
-          <ExternalToolLinks size="md" marginLeft={0} />
-        </span>
-      </header>
+      <GlobalNav currentApp="Help" role={session?.role ?? 'user'} />
 
       <div style={{ maxWidth: 880, margin: '0 auto', padding: '32px 24px 80px', lineHeight: 1.55 }}>
         <h1 style={{ fontSize: 32, margin: '0 0 8px' }}>How to use Grounded</h1>

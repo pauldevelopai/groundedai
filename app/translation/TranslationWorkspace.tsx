@@ -8,6 +8,7 @@
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
+import GlobalNav from '@/app/components/GlobalNav';
 
 type Pair = { source: string; target: string; source_label: string; target_label: string; model: string };
 type GlossaryEntry = {
@@ -102,32 +103,7 @@ export default function TranslationWorkspace({
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
-      <header
-        style={{
-          background: 'white',
-          borderBottom: '1px solid #e5e5e5',
-          padding: '14px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
-        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Grounded</Link>
-        <span style={{ color: '#999' }}>/</span>
-        <span style={{ fontSize: 14 }}>🌐 Translator</span>
-        <span style={{ flex: 1 }} />
-        <Link href="/run" style={{ fontSize: 13, color: '#0066cc' }}>Run →</Link>
-        <Link href="/research" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Research →</Link>
-
-        <Link href="/archive" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Archivist →</Link>
-        {(role === 'builder' || role === 'admin') && (
-          <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
-        )}
-        <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
-        <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
-          <ExternalToolLinks size="md" marginLeft={0} />
-        </span>
-      </header>
+      <GlobalNav currentApp="🌐 Translator" />
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px' }}>
         <h1 style={{ margin: 0, fontSize: 24 }}>Translator</h1>

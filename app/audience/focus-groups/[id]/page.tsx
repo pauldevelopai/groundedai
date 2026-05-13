@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getCurrentSession } from '@/app/lib/session';
 import { pool } from '@/lib/db';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
+import GlobalNav from '@/app/components/GlobalNav';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -56,15 +57,7 @@ export default async function FocusGroupPage({ params }: { params: Promise<{ id:
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
-      <header style={{ background: 'white', borderBottom: '1px solid #e5e5e5', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Link href="/audience" style={{ fontSize: 14, color: '#0066cc', textDecoration: 'none' }}>← Audience</Link>
-        <span style={{ flex: 1 }} />
-        <Link href="/run" style={{ fontSize: 13, color: '#0066cc' }}>Run →</Link>
-        <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
-        <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
-          <ExternalToolLinks size="md" marginLeft={0} />
-        </span>
-      </header>
+      <GlobalNav currentApp="👥 Audience Analytics Manager" />
 
       <div style={{ maxWidth: 880, margin: '0 auto', padding: '24px 20px' }}>
         <h1 style={{ margin: '0 0 4px', fontSize: 24 }}>{s.title}</h1>

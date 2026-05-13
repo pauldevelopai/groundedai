@@ -7,6 +7,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
+import GlobalNav from '@/app/components/GlobalNav';
 
 type Brief = {
   id: string; title: string;
@@ -60,15 +61,7 @@ export default function DistBriefDetail({ brief, canEdit }: { brief: Brief; canE
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
-      <header style={{ background: 'white', borderBottom: '1px solid #e5e5e5', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Link href="/distribution" style={{ fontSize: 14, color: '#0066cc', textDecoration: 'none' }}>← Digital News Gatherer</Link>
-        <span style={{ flex: 1 }} />
-        <Link href="/run" style={{ fontSize: 13, color: '#0066cc' }}>Run →</Link>
-        <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
-        <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
-          <ExternalToolLinks size="md" marginLeft={0} />
-        </span>
-      </header>
+      <GlobalNav currentApp="📡 Digital News Gatherer" />
 
       <div style={{ maxWidth: 880, margin: '0 auto', padding: '24px 20px' }}>
         <h1 style={{ margin: '0 0 4px', fontSize: 22 }}>{brief.title}</h1>

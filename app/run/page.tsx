@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/app/lib/session';
 import { pool } from '@/lib/db';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
+import GlobalNav from '@/app/components/GlobalNav';
 
 type RunCard = {
   id: string;
@@ -71,44 +72,7 @@ export default async function RunIndex() {
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
-      <header
-        style={{
-          background: 'white',
-          borderBottom: '1px solid #e5e5e5',
-          padding: '14px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
-        <strong style={{ fontSize: 16 }}>Grounded</strong>
-        <span style={{ color: '#999' }}>/</span>
-        <span style={{ fontSize: 14 }}>Run</span>
-        <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 13, color: '#666' }}>
-          {me?.display_name || me?.email} · {me?.newsroom_name}
-        </span>
-        <Link href="/newsroom" style={{ fontSize: 13, color: '#0066cc' }}>Profile →</Link>
-        <Link href="/verifier" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Verifier →</Link>
-
-        <Link href="/archive" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Archivist →</Link>
-        <Link href="/research" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Research →</Link>
-        <Link href="/translation" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Translator →</Link>
-        <Link href="/producer" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audio & Video Producer →</Link>
-        <Link href="/audience" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Audience Analytics Manager →</Link>
-        <Link href="/fundraiser" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Fundraiser →</Link>
-        <Link href="/operations" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Operations Manager →</Link>
-        <Link href="/distribution" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Digital News Gatherer →</Link>
-        <Link href="/social" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Social media listener →</Link>
-        {isBuilderOrAdmin && (
-          <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
-        )}
-        <Link href="/learning" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Learning →</Link>
-        <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
-        <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
-          <ExternalToolLinks size="md" marginLeft={0} />
-        </span>
-      </header>
+      <GlobalNav currentApp="Run" />
 
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '24px 20px' }}>
         <h1 style={{ margin: '0 0 6px', fontSize: 22 }}>

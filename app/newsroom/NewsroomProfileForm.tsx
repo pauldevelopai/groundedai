@@ -7,6 +7,7 @@
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
+import GlobalNav from '@/app/components/GlobalNav';
 
 type ImpactStory = { headline?: string; year?: string | number; outcome?: string; source_url?: string };
 type Award = { name?: string; year?: string | number; body?: string };
@@ -135,31 +136,7 @@ export default function NewsroomProfileForm({
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
-      <header
-        style={{
-          background: 'white',
-          borderBottom: '1px solid #e5e5e5',
-          padding: '14px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
-        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>Grounded</Link>
-        <span style={{ color: '#999' }}>/</span>
-        <span style={{ fontSize: 14 }}>📋 Newsroom profile</span>
-        <span style={{ flex: 1 }} />
-        <Link href="/run" style={{ fontSize: 13, color: '#0066cc' }}>Run →</Link>
-        <Link href="/research" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Research →</Link>
-        <Link href="/translation" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Translator →</Link>
-        {(role === 'builder' || role === 'admin') && (
-          <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
-        )}
-        <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
-        <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
-          <ExternalToolLinks size="md" marginLeft={0} />
-        </span>
-      </header>
+      <GlobalNav currentApp="📋 Newsroom profile" />
 
       <form onSubmit={onSave} style={{ maxWidth: 880, margin: '0 auto', padding: '24px 20px' }}>
         <h1 style={{ margin: '0 0 4px', fontSize: 24 }}>{newsroom.name}</h1>

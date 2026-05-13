@@ -7,6 +7,7 @@ import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
+import GlobalNav from '@/app/components/GlobalNav';
 
 type DossierRow = {
   id: string;
@@ -63,32 +64,7 @@ export default function ResearchIndex({
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
-      <header
-        style={{
-          background: 'white',
-          borderBottom: '1px solid #e5e5e5',
-          padding: '14px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
-        <Link href="/" style={{ fontSize: 16, fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
-          Grounded
-        </Link>
-        <span style={{ color: '#999' }}>/</span>
-        <span style={{ fontSize: 14 }}>🔎 Research</span>
-        <span style={{ flex: 1 }} />
-        <Link href="/run" style={{ fontSize: 13, color: '#0066cc' }}>Run →</Link>
-        <Link href="/archive" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Archivist →</Link>
-        {(role === 'builder' || role === 'admin') && (
-          <Link href="/builder" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Builder →</Link>
-        )}
-        <Link href="/guide" style={{ fontSize: 13, color: '#0066cc', marginLeft: 12 }}>Help →</Link>
-        <span style={{ marginLeft: 14, paddingLeft: 12, borderLeft: '1px solid #ddd' }}>
-          <ExternalToolLinks size="md" marginLeft={0} />
-        </span>
-      </header>
+      <GlobalNav currentApp="🔎 Research" />
 
       <div style={{ maxWidth: 880, margin: '0 auto', padding: '24px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
