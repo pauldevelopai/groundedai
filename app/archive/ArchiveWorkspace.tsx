@@ -10,6 +10,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import Link from 'next/link';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
 import GlobalNav from '@/app/components/GlobalNav';
+import AiCrawlerPolicyEditor from '@/app/archive/AiCrawlerPolicyEditor';
 
 type EntityType = {
   id: string;
@@ -115,6 +116,7 @@ const TAB_LABELS: Record<string, string> = {
   documents: 'Documents',
   types: 'Entity types',
   exports: 'Exports',
+  crawler: 'Crawler policy',
 };
 
 type ExportRow = {
@@ -196,6 +198,7 @@ export default function ArchiveWorkspace({
         {tab === 'documents' && <DocumentsRegion canEdit={canEdit} />}
         {tab === 'types' && <TypesRegion entityTypes={entityTypes} canEdit={canEdit} onTypeAdded={(t) => setEntityTypes([...entityTypes, t])} />}
         {tab === 'exports' && <ExportsRegion canEdit={canEdit} />}
+        {tab === 'crawler' && <AiCrawlerPolicyEditor canEdit={canEdit} />}
       </div>
     </main>
   );

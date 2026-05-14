@@ -8,6 +8,7 @@
 //   /metadata/topic_tags         (Track B1)
 //   /metadata/trusted_sources    (Track B2)
 //   /metadata/crawl_rules        (Track B3)
+//   /metadata/ai_crawler_policy  (V1.3)
 //
 // GET — returns { value: <whatever's stored at metadata.key>, exists: bool }
 // PATCH — body { value: <JSON> }. Builder+admin only. Writes via
@@ -24,6 +25,7 @@ const EDITABLE_KEYS = new Set([
   'topic_tags',
   'trusted_sources',
   'crawl_rules',
+  'ai_crawler_policy',
 ]);
 
 export async function GET(_req: Request, ctx: { params: Promise<{ key: string }> }) {
