@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
 import GlobalNav from '@/app/components/GlobalNav';
+import CrawlPanel from './CrawlPanel';
 
 type Dossier = {
   id: string;
@@ -248,6 +249,13 @@ export default function DossierDetail({
             </div>
             {error && <p style={{ color: '#b00', fontSize: 13, marginBottom: 8 }}>{error}</p>}
             {info && <p style={{ color: '#0a0', fontSize: 13, marginBottom: 8 }}>{info}</p>}
+
+            <CrawlPanel
+              dossierId={dossier.id}
+              canEdit={canEdit}
+              onCrawlFinished={() => router.refresh()}
+            />
+
             {documents.length === 0 ? (
               <p style={{ color: '#888', fontSize: 13, margin: 0 }}>
                 No documents yet. {canEdit ? 'Upload one to get started.' : 'A builder needs to upload one.'}
