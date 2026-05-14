@@ -10,6 +10,7 @@
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
+import AppliancePanel from './AppliancePanel';
 
 type User = {
   id: string;
@@ -213,6 +214,8 @@ export default function TeamPageClient({
           ))}
         </ul>
       </section>
+
+      <AppliancePanel />
     </main>
   );
 }

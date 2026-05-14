@@ -21,6 +21,7 @@ const {
   attachRunToExecution,
 } = require('@/lib/observatory/log');
 const { decideRoute } = require('@/lib/agents/route');
+const { getActiveAppliance, dispatchToAppliance } = require('@/lib/appliance/dispatch');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -100,16 +101,88 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   });
   await attachRunToExecution(runId, executionId);
 
-  // Stamp sensitivity onto the parent execution row so Observatory and
-  // Mentorship can filter by it.
+  // Stamp sensitivity + execution-target onto the parent execution row.
   if (executionId) {
     await pool.query(
       `UPDATE workflow_executions
           SET sensitivity_label = $2,
-              sensitivity_reasons = $3
+              sensitivity_reasons = $3,
+              executed_on = $4
         WHERE id = $1`,
-      [executionId, route.label, route.reasons]
+      [executionId, route.label, route.reasons, route.executeOn || 'cloud']
     );
+  }
+
+  // V2 Step 6: sensitive workflow → dispatch to the newsroom appliance
+  // instead of running here. Cloud path continues unchanged below.
+  if (route.executeOn === 'appliance') {
+    const appliance = await getActiveAppliance(session.newsroomId);
+    if (!appliance) {
+      const msg = 'sensitive_label_no_appliance';
+      await pool.query(
+        `UPDATE workflow_runs SET status = 'failed', error = $2, completed_at = NOW() WHERE id = $1`,
+        [runId, msg]
+      );
+      await finishWorkflowExecution(executionId, { status: 'failed', error: msg });
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+    try {
+      const { payload, dispatchId, durationMs } = await dispatchToAppliance({
+        appliance,
+        endpoint: 'workflows/run',
+        body: {
+          workflow_id: workflow.id,
+          workflow_slug: workflow.slug,
+          definition: workflow.definition,
+          inputs,
+          sensitivity: { label: route.label, reasons: route.reasons },
+        },
+        audit: {
+          newsroomId: session.newsroomId,
+          workflowExecutionId: executionId || undefined,
+          workflowRunId: runId,
+          agentSlug: 'workflow',
+        },
+      });
+      await pool.query(
+        `UPDATE workflow_runs
+            SET status = 'completed',
+                output = $2,
+                cost_usd = 0,
+                duration_ms = $3,
+                completed_at = NOW()
+          WHERE id = $1`,
+        [runId, JSON.stringify({ appliance_payload: payload, dispatch_id: dispatchId }), durationMs]
+      );
+      await finishWorkflowExecution(executionId, {
+        status: 'completed',
+        nodeCount: payload?.node_count ?? null,
+        totalCostUsd: 0,                // Anthropic not used; appliance Ollama is free
+        totalDurationMs: durationMs,
+      });
+      return NextResponse.json({
+        runId,
+        executed_on: 'appliance',
+        dispatch_id: dispatchId,
+        output: payload?.output ?? null,
+        nodeOutputs: payload?.nodeOutputs ?? {},
+        nodeCosts: payload?.nodeCosts ?? [],
+        totalCost: { costUsd: 0, inputTokens: 0, outputTokens: 0 },
+        durationMs,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'appliance dispatch failed';
+      await pool.query(
+        `UPDATE workflow_runs SET status = 'failed', error = $2, completed_at = NOW() WHERE id = $1`,
+        [runId, message]
+      );
+      await finishWorkflowExecution(executionId, { status: 'failed', error: message });
+      return NextResponse.json({
+        error: 'appliance_dispatch_failed',
+        message,
+        runId,
+      }, { status: 502 });
+    }
   }
 
   try {
