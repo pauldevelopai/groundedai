@@ -26,6 +26,7 @@ const EDITABLE_KEYS = new Set([
   'trusted_sources',
   'crawl_rules',
   'ai_crawler_policy',
+  'cohort_signals_enabled',     // V2 Step 2 — Mentorship cohort-tab opt-in
 ]);
 
 export async function GET(_req: Request, ctx: { params: Promise<{ key: string }> }) {

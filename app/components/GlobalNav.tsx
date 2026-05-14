@@ -123,6 +123,9 @@ export default function GlobalNav({
         {(role === 'builder' || role === 'admin') && (
           <Link href="/builder" style={{ color: '#0066cc', textDecoration: 'none', fontWeight: 500 }}>Builder →</Link>
         )}
+        {(role === 'builder' || role === 'admin') && (
+          <Link href="/mentorship" style={{ color: '#0066cc', textDecoration: 'none' }}>Mentorship →</Link>
+        )}
         {role === 'admin' && (
           <Link href="/team" style={{ color: '#0066cc', textDecoration: 'none' }}>Team →</Link>
         )}
