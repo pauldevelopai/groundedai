@@ -446,25 +446,12 @@ function EntitiesRegion({ entityTypes, canEdit }: { entityTypes: EntityType[]; c
                 {canEdit && (
                   <details style={{ marginBottom: 12 }}>
                     <summary style={{ fontSize: 12, color: '#0066cc', cursor: 'pointer' }}>Merge another entity into this one…</summary>
-                    <div style={{ marginTop: 8, padding: 10, background: '#fafafa', borderRadius: 6 }}>
-                      <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
-                        Pick from the list on the left, then click Merge. Useful for combining acronym/expansion pairs (e.g. "ANC" → "African National Congress").
-                      </div>
-                      <div style={{ fontSize: 12, marginBottom: 6 }}>
-                        Candidate: {mergeCandidate ? <strong>{mergeCandidate.canonical_name}</strong> : <em style={{ color: '#999' }}>(none)</em>}
-                      </div>
-                      <button
-                        disabled={!mergeCandidate || mergeCandidate.id === selected.id}
-                        onClick={doMerge}
-                        style={{ padding: '6px 10px', fontSize: 12, background: mergeCandidate ? '#dc2626' : '#ccc', color: 'white', border: 'none', borderRadius: 4, cursor: mergeCandidate ? 'pointer' : 'not-allowed' }}
-                      >
-                        Merge into {selected.canonical_name}
-                      </button>
-                      <button onClick={() => setMergeCandidate(null)} style={{ marginLeft: 8, padding: '6px 10px', fontSize: 12, background: 'none', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer' }}>Clear</button>
-                      <div style={{ fontSize: 11, color: '#666', marginTop: 6 }}>
-                        Tip: Cmd-click an entity row to pick it as the merge candidate.
-                      </div>
-                    </div>
+                    <MergePicker
+                      target={selected}
+                      candidate={mergeCandidate}
+                      onCandidateChange={setMergeCandidate}
+                      onMerge={doMerge}
+                    />
                   </details>
                 )}
 
@@ -897,6 +884,117 @@ function ExportsRegion({ canEdit }: { canEdit: boolean }) {
           </table>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Merge candidate picker ────────────────────────────────────────────────
+// Search-as-you-type over /api/archive/entities?q= with cross-type results.
+// Surfaces a "different type" warning when the picked candidate's type
+// doesn't match the keep-entity's type, so the editor knows they're
+// folding e.g. "Anglo American" (mining_company) into "Anglo American"
+// (organisation).
+
+function MergePicker({
+  target, candidate, onCandidateChange, onMerge,
+}: {
+  target: EntityRow;
+  candidate: EntityRow | null;
+  onCandidateChange: (e: EntityRow | null) => void;
+  onMerge: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [hits, setHits] = useState<EntityRow[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    if (!query || query.trim().length < 2) { setHits([]); return; }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/archive/entities?' + new URLSearchParams({ q: query, pageSize: '10' }));
+        const j = await res.json();
+        if (cancelled) return;
+        const filtered = (j.entities || []).filter((e: EntityRow) => e.id !== target.id);
+        setHits(filtered);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [query, target.id]);
+
+  const crossType = candidate && candidate.type_slug !== target.type_slug;
+
+  return (
+    <div style={{ marginTop: 8, padding: 10, background: '#fafafa', borderRadius: 6 }}>
+      <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
+        Type the name of the entity you want to fold INTO <strong>{target.canonical_name}</strong>.
+        Useful for acronym/expansion pairs ("ANC" → "African National Congress") and cross-type
+        duplicates ("Anglo American" as both organisation + mining_company).
+      </div>
+
+      {!candidate ? (
+        <>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search entities…"
+            style={{ width: '100%', padding: 6, fontSize: 13, border: '1px solid #ccc', borderRadius: 4, marginBottom: 6 }}
+          />
+          {searching && <div style={{ fontSize: 11, color: '#999' }}>Searching…</div>}
+          {hits.length > 0 && (
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none', maxHeight: 180, overflowY: 'auto', border: '1px solid #eee', borderRadius: 4 }}>
+              {hits.map((h) => (
+                <li
+                  key={h.id}
+                  onClick={() => { onCandidateChange(h); setQuery(''); setHits([]); }}
+                  style={{ padding: '6px 8px', cursor: 'pointer', borderBottom: '1px solid #f5f5f5', fontSize: 12 }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f0f6ff')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
+                >
+                  <strong>{h.canonical_name}</strong>{' '}
+                  <span style={{ fontSize: 11, padding: '1px 5px', background: h.type_kind === 'newsroom' ? '#fef3c7' : '#e5e7eb', borderRadius: 3 }}>
+                    {h.type_label}
+                  </span>
+                  <span style={{ color: '#999', marginLeft: 6 }}>· {h.mention_count} mention{h.mention_count === 1 ? '' : 's'}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 13, padding: 8, background: 'white', border: '1px solid #ccc', borderRadius: 4, marginBottom: 8 }}>
+            Merging <strong>{candidate.canonical_name}</strong> <span style={{ fontSize: 11, padding: '1px 5px', background: '#e5e7eb', borderRadius: 3 }}>{candidate.type_label}</span>
+            {' '}<strong>→</strong> {target.canonical_name} <span style={{ fontSize: 11, padding: '1px 5px', background: '#e5e7eb', borderRadius: 3 }}>{target.type_label}</span>
+          </div>
+          {crossType && (
+            <div style={{ background: '#fff8e6', border: '1px solid #f5d77a', padding: 8, borderRadius: 4, fontSize: 12, color: '#6b5800', marginBottom: 8 }}>
+              ⚠ Cross-type merge: the candidate is a {candidate.type_label} but the keep-entity is a {target.type_label}.
+              All mentions, claims, and relationships will be re-pointed to {target.canonical_name}. The type stays {target.type_label}.
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              onClick={onMerge}
+              style={{ padding: '6px 12px', fontSize: 12, background: '#dc2626', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+            >
+              Merge into {target.canonical_name}
+            </button>
+            <button
+              type="button"
+              onClick={() => onCandidateChange(null)}
+              style={{ padding: '6px 12px', fontSize: 12, background: 'none', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer' }}
+            >
+              Pick a different one
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
