@@ -10,6 +10,7 @@
     "start": "next start -p 3002",
     "migrate": "node db/migrate.js",
     "seed": "node db/seed.js",
+    "seed:pilots": "node db/seed-pilots.js",
     "worker": "node scripts/jobs/worker.js",
     "lint": "next lint",
     "test": "node --test --test-concurrency=1 --test-reporter=spec 'tests/**/*.test.js'"
