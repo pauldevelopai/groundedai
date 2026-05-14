@@ -3,6 +3,7 @@ import { getCurrentSession } from '@/app/lib/session';
 import { pool } from '@/lib/db';
 import { draft } from '@/lib/agents/drafter';
 const { isFallbackModel } = require('@/lib/claude');
+const { decideRoute } = require('@/lib/agents/route');
 
 export async function POST(req: Request) {
   const session = await getCurrentSession();
@@ -26,15 +27,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'taskType is required' }, { status: 400 });
   }
 
+  // V2 Step 5: sensitivity classification before any Claude call.
+  const route = await decideRoute({
+    newsroomId: session.newsroomId,
+    inputText: articleText,
+  });
+  if (route.refuse) {
+    return NextResponse.json({
+      error: route.error,
+      sensitivity_label: route.label,
+      sensitivity_reasons: route.reasons,
+      message: 'This input was classified as sensitive. Drafter cannot send sensitive material to Anthropic; the newsroom-appliance dispatch path lands in V2 Step 6.',
+    }, { status: 400 });
+  }
+
   // Open the run up front — gives us a row to update on success or fail.
   const runInsert = await pool.query(
-    `INSERT INTO workflow_runs (newsroom_id, user_id, agent, status, input)
-     VALUES ($1, $2, 'drafter', 'running', $3)
+    `INSERT INTO workflow_runs (newsroom_id, user_id, agent, status, input, sensitivity_label)
+     VALUES ($1, $2, 'drafter', 'running', $3, $4)
      RETURNING id`,
     [
       session.newsroomId,
       session.userId,
       JSON.stringify({ articleText, taskType, targetLanguage, numDrafts }),
+      route.label,
     ]
   );
   const runId = runInsert.rows[0].id;

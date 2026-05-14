@@ -20,6 +20,7 @@ const {
   finishWorkflowExecution,
   attachRunToExecution,
 } = require('@/lib/observatory/log');
+const { decideRoute } = require('@/lib/agents/route');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -58,20 +59,37 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
   }
 
+  // V2 Step 5: classify sensitivity before any Claude call. Refused
+  // requests don't open a workflow_runs row — they fail clean.
+  const inputSummary = JSON.stringify(inputs).slice(0, 500);
+  const route = await decideRoute({
+    newsroomId: session.newsroomId,
+    inputText: inputSummary,
+    workflowSlug: workflow.slug,
+  });
+  if (route.refuse) {
+    return NextResponse.json({
+      error: route.error,
+      sensitivity_label: route.label,
+      sensitivity_reasons: route.reasons,
+      message: 'This workflow input was classified as sensitive. The newsroom-appliance dispatch path lands in V2 Step 6; for now sensitive jobs are refused. Adjust your sensitivity rules in /newsroom if this is a false positive.',
+    }, { status: 400 });
+  }
+
   const runInsert = await pool.query(
-    `INSERT INTO workflow_runs (newsroom_id, user_id, agent, status, input)
-     VALUES ($1, $2, 'workflow', 'running', $3)
+    `INSERT INTO workflow_runs (newsroom_id, user_id, agent, status, input, sensitivity_label)
+     VALUES ($1, $2, 'workflow', 'running', $3, $4)
      RETURNING id`,
     [
       session.newsroomId,
       session.userId,
       JSON.stringify({ workflow_id: workflow.id, workflow_slug: workflow.slug, inputs }),
+      route.label,
     ]
   );
   const runId = runInsert.rows[0].id;
 
   // Observatory: parent execution row + back-link the workflow_runs row.
-  const inputSummary = JSON.stringify(inputs).slice(0, 500);
   const executionId: string | null = await startWorkflowExecution({
     newsroomId: session.newsroomId,
     userId: session.userId,
@@ -81,6 +99,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     inputSummary,
   });
   await attachRunToExecution(runId, executionId);
+
+  // Stamp sensitivity onto the parent execution row so Observatory and
+  // Mentorship can filter by it.
+  if (executionId) {
+    await pool.query(
+      `UPDATE workflow_executions
+          SET sensitivity_label = $2,
+              sensitivity_reasons = $3
+        WHERE id = $1`,
+      [executionId, route.label, route.reasons]
+    );
+  }
 
   try {
     const { output, nodeOutputs, nodeCosts, totalCost, durationMs } = await runWorkflow(

@@ -11,6 +11,7 @@ import GlobalNav from '@/app/components/GlobalNav';
 import TopicTagsEditor from './TopicTagsEditor';
 import TrustedSourcesEditor from './TrustedSourcesEditor';
 import CrawlRulesEditor from './CrawlRulesEditor';
+import SensitivityRulesEditor from './SensitivityRulesEditor';
 import StyleFingerprintInspector from './StyleFingerprintInspector';
 
 type ImpactStory = { headline?: string; year?: string | number; outcome?: string; source_url?: string };
@@ -246,6 +247,7 @@ export default function NewsroomProfileForm({
         <TopicTagsEditor canEdit={canEdit} />
         <TrustedSourcesEditor canEdit={canEdit} />
         <CrawlRulesEditor canEdit={canEdit} />
+        <SensitivityRulesEditor canEdit={canEdit} />
         <StyleFingerprintInspector canEdit={canEdit} />
 
         {canEdit && (

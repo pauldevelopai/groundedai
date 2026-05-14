@@ -26,6 +26,7 @@ export async function GET(req: Request) {
     `SELECT we.id, we.workflow_id, we.workflow_slug, we.triggered_via, we.input_summary,
             we.status, we.node_count, we.total_cost_usd, we.total_duration_ms,
             we.started_at, we.finished_at, we.error,
+            we.sensitivity_label, we.sensitivity_reasons,
             u.email AS user_email
        FROM workflow_executions we
        JOIN users u ON u.id = we.user_id
