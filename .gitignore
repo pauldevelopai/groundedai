@@ -53,4 +53,4 @@ storage/producer/*
 
 # Distributor credential-encryption key. In production set ANCHOR_DISTRIBUTION_KEY
 # explicitly; this file is the dev fallback. NEVER commit it.
-.anchor-distribution-key
+.grounded-distribution-key

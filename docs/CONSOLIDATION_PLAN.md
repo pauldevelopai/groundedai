@@ -267,7 +267,7 @@ Each useful in its own slice but none urgent. Pull from the git-history version 
 **`lib/storage/drive.js` parser.**
 Didn't actually read it. May already do section-splitting. Worth a 10-minute glance the next time anyone's in that file; out of scope for this plan.
 
-**Anchor-as-multi-tenant-SaaS performance work** — connection-pool sizing, per-newsroom rate-limits, queue priority lanes, etc. Not relevant until the platform has >20 active newsrooms and real load. Premature today.
+**Grounded-as-multi-tenant-SaaS performance work** — connection-pool sizing, per-newsroom rate-limits, queue priority lanes, etc. Not relevant until the platform has >20 active newsrooms and real load. Premature today.
 
 ---
 

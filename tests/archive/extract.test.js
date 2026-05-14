@@ -13,7 +13,7 @@ require.cache[claudePath] = {
   exports: {
     chat: async () => ({ text: nextResponse, cost: { costUsd: 0, model: 'stub', inputTokens: 0, outputTokens: 0 } }),
     isFallbackModel: () => false,
-    ANCHOR_MODEL: 'stub',
+    GROUNDED_MODEL: 'stub',
   },
   loaded: true,
   id: claudePath,

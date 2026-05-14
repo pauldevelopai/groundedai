@@ -17,7 +17,7 @@ export async function POST() {
 
   try {
     const { text, cost } = await chat({
-      system: 'You are a smoke-test responder. Reply with exactly: ANCHOR_SMOKE_OK',
+      system: 'You are a smoke-test responder. Reply with exactly: GROUNDED_SMOKE_OK',
       messages: [{ role: 'user', content: 'ping' }],
       maxTokens: 50,
       context: {
