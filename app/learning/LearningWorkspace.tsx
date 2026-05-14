@@ -1,13 +1,20 @@
-// LearningWorkspace — three regions: updates feed, cohort metrics,
-// promoted workflows. Read-only for users; builders/admins can ack-or-
-// dismiss updates and adopt promoted workflows.
+// LearningWorkspace — V2 Step 3 Tracker UI. Seven tabs:
+//
+//   Home          : weekly digest masthead + most-relevant feed
+//   Lawsuits      : data_law / press_freedom entries flagged as lawsuit
+//   Regulations   : data_law / governance entries (non-lawsuit), by jurisdiction
+//   Connections   : force-directed SVG map of tracker_relationships
+//   Use cases     : list + submit (own newsroom + cohort-shared)
+//   Sources       : publisher directory rollup
+//   Submit        : submit a new entry for cohort review (pending → live)
+//
+// Cohort metrics + promoted workflows that lived in the V1 Learning page
+// now live in /mentorship; a pointer is surfaced in the Home tab.
 
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useEffect, useMemo, useState, FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import ExternalToolLinks from '@/app/components/ExternalToolLinks';
 import GlobalNav from '@/app/components/GlobalNav';
 
 type Update = {
@@ -24,33 +31,62 @@ type Update = {
   country_scope: string[];
   is_default: boolean;
   source: string;
-  ack_decision: 'applies' | 'dismissed' | 'pending' | null;
-  ack_notes: string | null;
+  ack_decision?: 'applies' | 'dismissed' | 'pending' | null;
+  ack_notes?: string | null;
 };
-type Metrics = {
-  cohort_size: number;
-  workflows_total: number;
-  workflow_runs_30d: number;
-  briefs_by_agent_30d: Array<{ agent: string; n: number }>;
-  verifier: { runs_30d: number; runs_with_credibility_match: number; by_status: Array<{ status: string; n: number }> };
-  social: { signals_30d: number; signals_with_io_network_match: number; by_status: Array<{ status: string; n: number }> };
-  distribution: { sends_30d: number; by_status: Array<{ status: string; n: number }> };
-  audience: { consultations_30d: number; by_kind: Array<{ kind: string; n: number }> };
-};
-type Promotion = {
+
+type Digest = {
   id: string;
-  workflow_id: string;
+  period_start: string;
+  period_end: string;
+  summary_md: string;
+  top_entry_ids: string[];
+  entry_count: number;
+  generated_at: string;
+} | null;
+
+type UseCase = {
+  id: string;
+  newsroom_id: string;
+  newsroom_name: string | null;
+  submitted_by_email: string | null;
   title: string;
-  problem_statement: string | null;
-  problem_category: string | null;
-  origin_newsroom_name: string | null;
-  usage_count: number;
-  cohort_adopter_count: number;
-  cohort_success_rate: number | string | null;
-  recommendation_note: string | null;
-  status: string;
-  adoption_id: string | null;
-  adopted_at: string | null;
+  summary: string;
+  outcome: 'positive' | 'negative' | 'mixed';
+  agents_involved: string[];
+  tags: string[];
+  attachment_urls: string[];
+  shared_with_cohort: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type SourceRow = {
+  source_publisher: string;
+  entry_count: number;
+  last_update: string | null;
+  countries: string[] | null;
+  urgent: number;
+  advisory: number;
+  info: number;
+};
+
+type GraphNode = {
+  id: string;
+  title: string;
+  kind: Update['kind'];
+  severity: Update['severity'];
+  country_scope: string[];
+  source_publisher: string | null;
+  at: string;
+};
+type GraphEdge = {
+  id: string;
+  from_entry_id: string;
+  to_entry_id: string;
+  kind: string;
+  notes: string | null;
+  cohort_wide: boolean;
 };
 
 const KIND_LABELS: Record<Update['kind'], string> = {
@@ -63,88 +99,360 @@ const KIND_LABELS: Record<Update['kind'], string> = {
   press_freedom: 'Press freedom',
 };
 
+const LAWSUIT_KEYWORDS = /\b(lawsuit|sued|class[\s-]action|filed against|settlement|court[\s-]ruling|injunction|complaint|plaintiff|defendant|tribunal|magistrate)\b/i;
+
+function isLawsuit(u: Update) {
+  return LAWSUIT_KEYWORDS.test(u.title) || LAWSUIT_KEYWORDS.test(u.body);
+}
+
+const TAB_LABELS = {
+  home: 'Home',
+  lawsuits: 'Lawsuits',
+  regulations: 'Regulations',
+  connections: 'Connections',
+  use_cases: 'Use cases',
+  sources: 'Sources',
+  submit: 'Submit',
+} as const;
+
+type TabKey = keyof typeof TAB_LABELS;
+
 export default function LearningWorkspace({
-  initialUpdates, initialMetrics, initialPromotions, canEdit, isAdmin, role,
+  initialUpdates, initialDigest, canEdit, isAdmin: _isAdmin, role,
 }: {
   initialUpdates: Update[];
-  initialMetrics: Metrics;
-  initialPromotions: Promotion[];
+  initialDigest: Digest;
   canEdit: boolean;
   isAdmin: boolean;
   role: 'user' | 'builder' | 'admin';
 }) {
-  const router = useRouter();
-  const [updates, setUpdates] = useState(initialUpdates);
-  const [metrics] = useState(initialMetrics);
-  const [promotions, setPromotions] = useState(initialPromotions);
+  const [tab, setTab] = useState<TabKey>('home');
+  const [updates] = useState(initialUpdates);
+  const [digest] = useState(initialDigest);
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#f7f8fa' }}>
-      <GlobalNav currentApp="📚 Learning" />
+      <GlobalNav currentApp="⚖️ Tracker" role={role} />
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px' }}>
-        <h1 style={{ margin: 0, fontSize: 24 }}>Learning</h1>
+        <h1 style={{ margin: 0, fontSize: 24 }}>AI Legal, Ethics & Regulation Tracker</h1>
         <p style={{ color: '#666', fontSize: 14, marginTop: 4 }}>
-          Curated AI-ethics, data-law, and press-freedom updates for African newsrooms · cohort meta-analytics across all newsrooms · workflows the cohort has adopted at scale.
+          The 12th agent. Lawsuits, regulations, governance shifts, and ethics decisions — collected daily, scoped to
+          your jurisdictions, cross-referenced with your newsroom's use cases.
         </p>
 
-        <UpdatesSection updates={updates} canEdit={canEdit} isAdmin={isAdmin} onChange={setUpdates} onRefresh={() => router.refresh()} />
-        <CohortSection metrics={metrics} />
-        <PromotionsSection promotions={promotions} canEdit={canEdit} isAdmin={isAdmin} onChange={setPromotions} onRefresh={() => router.refresh()} />
+        <div style={{ display: 'flex', gap: 4, marginTop: 16, marginBottom: 16, borderBottom: '1px solid #ddd', flexWrap: 'wrap' }}>
+          {(Object.keys(TAB_LABELS) as TabKey[]).map((t) => (
+            <button key={t} onClick={() => setTab(t)} style={tabBtnStyle(tab === t)}>
+              {TAB_LABELS[t]}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'home' && <HomeTab updates={updates} digest={digest} />}
+        {tab === 'lawsuits' && <LawsuitsTab updates={updates} />}
+        {tab === 'regulations' && <RegulationsTab updates={updates} />}
+        {tab === 'connections' && <ConnectionsTab />}
+        {tab === 'use_cases' && <UseCasesTab canEdit={canEdit} />}
+        {tab === 'sources' && <SourcesTab />}
+        {tab === 'submit' && <SubmitTab />}
       </div>
     </main>
   );
 }
 
-// ─── Updates feed ──────────────────────────────────────────────────────────
+// ─── Home ──────────────────────────────────────────────────────────────────
 
-function UpdatesSection({
-  updates, canEdit, isAdmin, onChange, onRefresh,
-}: {
-  updates: Update[]; canEdit: boolean; isAdmin: boolean;
-  onChange: (rows: Update[]) => void; onRefresh: () => void;
-}) {
-  const [adding, setAdding] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'urgent' | 'advisory' | 'pending_ack'>('all');
-
-  const filtered = updates.filter(u => {
-    if (filter === 'urgent') return u.severity === 'urgent';
-    if (filter === 'advisory') return u.severity === 'advisory' || u.severity === 'urgent';
-    if (filter === 'pending_ack') return u.ack_decision !== 'applies' && u.ack_decision !== 'dismissed';
-    return true;
-  });
+function HomeTab({ updates, digest }: { updates: Update[]; digest: Digest }) {
+  // Home shows urgent + advisory entries first (severity-weighted) then the
+  // most-recent info entries. Capped to 30 so the feed stays scannable.
+  const sorted = useMemo(() => {
+    const sevRank: Record<Update['severity'], number> = { urgent: 0, advisory: 1, info: 2 };
+    return [...updates].sort((a, b) => {
+      if (sevRank[a.severity] !== sevRank[b.severity]) return sevRank[a.severity] - sevRank[b.severity];
+      const aDate = a.published_at || '';
+      const bDate = b.published_at || '';
+      return bDate.localeCompare(aDate);
+    }).slice(0, 30);
+  }, [updates]);
 
   return (
-    <section style={{ marginTop: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-        <div>
-          <h2 style={{ fontSize: 16, margin: 0 }}>📰 Updates</h2>
-          <p style={{ fontSize: 13, color: '#666', margin: '2px 0 0' }}>
-            Curated AI-ethics / data-law / security / press-freedom feed. Mark items that apply to your newsroom or dismiss those that don&apos;t.
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {(['all', 'pending_ack', 'urgent', 'advisory'] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)} style={{
-              ...miniBtn,
-              background: filter === f ? '#0066cc' : 'white',
-              color: filter === f ? 'white' : '#444',
-              borderColor: filter === f ? '#0066cc' : '#d0d0d0',
-              fontWeight: filter === f ? 600 : 400,
-            }}>
-              {f === 'all' ? 'All' : f === 'pending_ack' ? 'Needs review' : f}
-            </button>
-          ))}
-          {canEdit && <button onClick={() => setAdding(a => !a)} style={ghostBtn}>{adding ? 'Cancel' : '+ Add update'}</button>}
-        </div>
-      </div>
-      {adding && canEdit && (
-        <AddUpdateForm isAdmin={isAdmin} onCancel={() => setAdding(false)} onCreated={(u) => { onChange([u, ...updates]); setAdding(false); onRefresh(); }} />
+    <>
+      {digest && (
+        <section style={{ ...panelStyle, background: '#f1f6fb', border: '1px solid #cfe1f5' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <h2 style={{ fontSize: 16, margin: 0 }}>This week's cohort digest</h2>
+            <span style={{ fontSize: 12, color: '#666' }}>
+              {shortDate(digest.period_start)} → {shortDate(digest.period_end)} · {digest.entry_count} entries
+            </span>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 14, lineHeight: 1.55, color: '#1a3a66' }}>
+            <Markdown text={digest.summary_md} />
+          </div>
+        </section>
       )}
-      {filtered.length === 0 ? <Empty text="No updates match this filter." /> : (
-        <div style={{ display: 'grid', gap: 8 }}>
-          {filtered.map(u => (
-            <UpdateCard key={u.id} update={u} canEdit={canEdit} onChange={(updated) => onChange(updates.map(x => x.id === updated.id ? updated : x))} />
+
+      <section style={panelStyle}>
+        <h3 style={subHeadStyle}>Most-relevant feed ({sorted.length})</h3>
+        <p style={{ fontSize: 12, color: '#666', margin: '0 0 10px' }}>
+          Urgent and advisory entries first. Use the Lawsuits / Regulations tabs above for a filtered view.
+          Team-wide signals (workflow performance, edit hotspots) live in <Link href="/mentorship" style={{ color: '#0066cc' }}>Mentorship</Link>.
+        </p>
+        <EntryList rows={sorted} />
+      </section>
+    </>
+  );
+}
+
+// ─── Lawsuits ──────────────────────────────────────────────────────────────
+
+function LawsuitsTab({ updates }: { updates: Update[] }) {
+  const rows = useMemo(() => updates.filter((u) =>
+    (u.kind === 'data_law' || u.kind === 'press_freedom') && isLawsuit(u)
+  ), [updates]);
+
+  return (
+    <section style={panelStyle}>
+      <h3 style={subHeadStyle}>Lawsuits ({rows.length})</h3>
+      <p style={{ fontSize: 12, color: '#666', margin: '0 0 10px' }}>
+        Active and decided cases relevant to data law and press freedom. Detected from titles/bodies that mention
+        keywords like <code style={codeStyle}>sued</code>, <code style={codeStyle}>filed</code>,
+        <code style={codeStyle}>court ruling</code>, <code style={codeStyle}>settlement</code>.
+      </p>
+      {rows.length === 0
+        ? <Hint>No lawsuit entries in your scope yet. Submit one from the Submit tab.</Hint>
+        : <EntryList rows={rows} />}
+    </section>
+  );
+}
+
+// ─── Regulations ───────────────────────────────────────────────────────────
+
+function RegulationsTab({ updates }: { updates: Update[] }) {
+  const rows = useMemo(() => updates.filter((u) =>
+    (u.kind === 'data_law' || u.kind === 'governance') && !isLawsuit(u)
+  ), [updates]);
+
+  // Group by primary country in country_scope (first entry, fallback 'global').
+  const groups = useMemo(() => {
+    const map = new Map<string, Update[]>();
+    for (const r of rows) {
+      const k = (r.country_scope && r.country_scope[0]) || 'global';
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(r);
+    }
+    return [...map.entries()].sort((a, b) => b[1].length - a[1].length);
+  }, [rows]);
+
+  if (rows.length === 0) {
+    return <Hint>No regulations in your scope yet.</Hint>;
+  }
+  return (
+    <>
+      {groups.map(([country, list]) => (
+        <section key={country} style={panelStyle}>
+          <h3 style={subHeadStyle}>{country} <span style={{ color: '#888', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>· {list.length}</span></h3>
+          <EntryList rows={list} />
+        </section>
+      ))}
+    </>
+  );
+}
+
+// ─── Connections (SVG force-directed) ──────────────────────────────────────
+
+function ConnectionsTab() {
+  const [data, setData] = useState<{ nodes: GraphNode[]; edges: GraphEdge[]; max_nodes: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<GraphNode | null>(null);
+
+  useEffect(() => {
+    fetch('/api/learning/connections')
+      .then((r) => r.json())
+      .then((j) => { if (j.error) throw new Error(j.error); setData(j); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Hint>Loading the graph…</Hint>;
+  if (error) return <ErrorBox>{error}</ErrorBox>;
+  if (!data || data.nodes.length === 0) {
+    return (
+      <Hint>
+        No connections yet. As admins curate <code style={codeStyle}>cited_in</code>,
+        <code style={codeStyle}>superseded_by</code>, <code style={codeStyle}>applies_to</code> links between Tracker
+        entries, this map fills out.
+      </Hint>
+    );
+  }
+
+  return (
+    <section style={panelStyle}>
+      <h3 style={subHeadStyle}>Connections map ({data.nodes.length} entries · {data.edges.length} links)</h3>
+      <p style={{ fontSize: 12, color: '#666', margin: '0 0 10px' }}>
+        How entries cite, supersede, or apply to each other. Click a node to see its details.
+      </p>
+      <ForceGraph nodes={data.nodes} edges={data.edges} onSelect={setSelected} />
+      {selected && (
+        <div style={{ marginTop: 12, padding: 12, background: '#fafbfc', border: '1px solid #e1e4e8', borderRadius: 6 }}>
+          <SeverityPill severity={selected.severity} />
+          {' '}
+          <KindPill kind={selected.kind} />
+          <h4 style={{ fontSize: 15, margin: '6px 0 4px' }}>{selected.title}</h4>
+          <div style={{ fontSize: 12, color: '#666' }}>
+            {selected.source_publisher || '(no source)'} · {selected.country_scope.join(', ') || 'global'} · {shortDate(selected.at)}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ForceGraph({
+  nodes, edges, onSelect,
+}: { nodes: GraphNode[]; edges: GraphEdge[]; onSelect: (n: GraphNode) => void }) {
+  // Compute a deterministic radial layout: nodes on a circle, edges drawn
+  // as lines. Cheap, deterministic, no library needed. Real spring physics
+  // is overkill for ≤80 nodes.
+  const positions = useMemo(() => {
+    const W = 760;
+    const H = 460;
+    const cx = W / 2, cy = H / 2;
+    const r = Math.min(W, H) * 0.38;
+    const map: Record<string, { x: number; y: number }> = {};
+    nodes.forEach((n, i) => {
+      const angle = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
+      map[n.id] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+    });
+    return { positions: map, W, H };
+  }, [nodes]);
+
+  const sevColor: Record<Update['severity'], string> = {
+    urgent: '#a00',
+    advisory: '#915d00',
+    info: '#0066cc',
+  };
+
+  return (
+    <svg width={positions.W} height={positions.H} viewBox={`0 0 ${positions.W} ${positions.H}`}
+      style={{ background: '#fafbfd', border: '1px solid #e5e5e5', borderRadius: 6, width: '100%', height: 'auto', maxHeight: 520 }}>
+      {edges.map((e) => {
+        const a = positions.positions[e.from_entry_id];
+        const b = positions.positions[e.to_entry_id];
+        if (!a || !b) return null;
+        return (
+          <line key={e.id}
+            x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+            stroke={e.cohort_wide ? '#9ab3c9' : '#cbd0d5'}
+            strokeWidth={e.cohort_wide ? 1.5 : 1}
+            strokeDasharray={e.kind === 'superseded_by' ? '4 3' : undefined}
+            opacity={0.85}>
+            <title>{e.kind}{e.notes ? ` — ${e.notes}` : ''}</title>
+          </line>
+        );
+      })}
+      {nodes.map((n) => {
+        const p = positions.positions[n.id];
+        if (!p) return null;
+        return (
+          <g key={n.id} onClick={() => onSelect(n)} style={{ cursor: 'pointer' }}>
+            <circle cx={p.x} cy={p.y} r={n.severity === 'urgent' ? 9 : n.severity === 'advisory' ? 7 : 5}
+              fill={sevColor[n.severity]} opacity={0.85}>
+              <title>{n.title}</title>
+            </circle>
+            <text x={p.x + 11} y={p.y + 4} fontSize={11} fill="#222">
+              {n.title.length > 28 ? n.title.slice(0, 25) + '…' : n.title}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ─── Use cases ─────────────────────────────────────────────────────────────
+
+function UseCasesTab({ canEdit }: { canEdit: boolean }) {
+  const [rows, setRows] = useState<UseCase[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [scope, setScope] = useState<'mine' | 'cohort' | 'all'>('all');
+  const [showForm, setShowForm] = useState(false);
+
+  function load() {
+    setLoading(true); setError(null);
+    fetch(`/api/learning/use-cases?scope=${scope}`)
+      .then((r) => r.json())
+      .then((j) => { if (j.error) throw new Error(j.error); setRows(j.rows); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [scope]);
+
+  return (
+    <>
+      <section style={panelStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
+          <h3 style={{ ...subHeadStyle, margin: 0 }}>Use cases ({rows.length})</h3>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(['all', 'mine', 'cohort'] as const).map((s) => (
+              <button key={s} onClick={() => setScope(s)} style={pillBtnStyle(scope === s)}>{s}</button>
+            ))}
+            {canEdit && (
+              <button onClick={() => setShowForm((x) => !x)} style={primaryBtnStyle}>
+                {showForm ? 'Close' : 'Submit use case'}
+              </button>
+            )}
+          </div>
+        </div>
+        <p style={{ fontSize: 12, color: '#666', margin: '8px 0 0' }}>
+          What happened when your newsroom used Grounded for X. Share the wins, share the misses. The cohort
+          benefits when more newsrooms record outcomes.
+        </p>
+      </section>
+
+      {showForm && <UseCaseForm onSaved={() => { setShowForm(false); load(); }} />}
+
+      {loading && <Hint>Loading…</Hint>}
+      {error && <ErrorBox>{error}</ErrorBox>}
+      {!loading && rows.length === 0 && <Hint>No use cases in this view yet.</Hint>}
+      {rows.map((r) => <UseCaseCard key={r.id} row={r} />)}
+    </>
+  );
+}
+
+function UseCaseCard({ row }: { row: UseCase }) {
+  const outcomeColor = row.outcome === 'positive' ? { bg: '#e6f4ea', fg: '#0a7d2a' }
+    : row.outcome === 'negative' ? { bg: '#fde8e8', fg: '#a00' }
+    : { bg: '#fff4e1', fg: '#915d00' };
+  return (
+    <section style={panelStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <h4 style={{ fontSize: 15, margin: 0 }}>{row.title}</h4>
+        <span style={{
+          display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11,
+          background: outcomeColor.bg, color: outcomeColor.fg, fontWeight: 600,
+        }}>{row.outcome}</span>
+      </div>
+      <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+        {row.newsroom_name ? row.newsroom_name : '(anonymised cohort entry)'}
+        {row.submitted_by_email && <> · {row.submitted_by_email}</>}
+        {' · '}{shortDate(row.created_at)}
+        {row.shared_with_cohort && <> · <strong>shared with cohort</strong></>}
+      </div>
+      <p style={{ fontSize: 14, color: '#333', lineHeight: 1.55, marginTop: 10, whiteSpace: 'pre-wrap' }}>{row.summary}</p>
+      {(row.agents_involved.length > 0 || row.tags.length > 0) && (
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
+          {row.agents_involved.map((a) => <span key={a} style={chipStyle}>agent: {a}</span>)}
+          {row.tags.map((t) => <span key={t} style={chipStyle}>{t}</span>)}
+        </div>
+      )}
+      {row.attachment_urls.length > 0 && (
+        <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
+          Attachments: {row.attachment_urls.map((u, i) => (
+            <span key={u}>{i > 0 ? ' · ' : ''}<a href={u} target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>{shortUrl(u)}</a></span>
           ))}
         </div>
       )}
@@ -152,56 +460,127 @@ function UpdatesSection({
   );
 }
 
-function UpdateCard({ update: u, canEdit, onChange }: { update: Update; canEdit: boolean; onChange: (u: Update) => void }) {
-  const [busy, setBusy] = useState(false);
-  async function ack(decision: 'applies' | 'dismissed' | 'pending') {
-    setBusy(true);
-    const res = await fetch(`/api/learning/updates/${u.id}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ decision }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) { alert(data.error || 'Failed'); return; }
-    onChange(data.update);
+function UseCaseForm({ onSaved }: { onSaved: () => void }) {
+  const [title, setTitle] = useState('');
+  const [summary, setSummary] = useState('');
+  const [outcome, setOutcome] = useState<UseCase['outcome']>('positive');
+  const [agentsText, setAgentsText] = useState('');
+  const [tagsText, setTagsText] = useState('');
+  const [shared, setShared] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setSubmitting(true); setError(null);
+    try {
+      const res = await fetch('/api/learning/use-cases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          summary: summary.trim(),
+          outcome,
+          agents_involved: agentsText.split(',').map((s) => s.trim()).filter(Boolean),
+          tags: tagsText.split(',').map((s) => s.trim()).filter(Boolean),
+          shared_with_cohort: shared,
+        }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+      onSaved();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSubmitting(false);
+    }
   }
+
   return (
-    <div style={cardStyle}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
-            <strong style={{ fontSize: 14 }}>{u.title}</strong>
-            <Tag accent={severityTone(u.severity)}>{u.severity}</Tag>
-            <Tag muted>{KIND_LABELS[u.kind]}</Tag>
-            {u.country_scope.length > 0 && <Tag muted>{u.country_scope.join(', ')}</Tag>}
-            {u.is_default && <Tag muted>cohort</Tag>}
-            {u.ack_decision === 'applies' && <Tag accent={severityTone('advisory')}>✓ applies to us</Tag>}
-            {u.ack_decision === 'dismissed' && <Tag muted>dismissed</Tag>}
-          </div>
-          <p style={{ fontSize: 13, color: '#444', margin: '6px 0 0', lineHeight: 1.5 }}>{u.body}</p>
-          <div style={{ fontSize: 12, color: '#666', marginTop: 6 }}>
-            {u.source_publisher && <span>{u.source_publisher}</span>}
-            {u.published_at && <span> · {new Date(u.published_at).toISOString().slice(0, 10)}</span>}
-            {u.source_url && <> · <a href={u.source_url} target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>source ↗</a></>}
-            {u.applies_to_agents.length > 0 && <span> · applies to {u.applies_to_agents.join(', ')}</span>}
-          </div>
-        </div>
-        {canEdit && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {u.ack_decision !== 'applies' && (
-              <button disabled={busy} onClick={() => ack('applies')} style={miniBtn}>Applies</button>
-            )}
-            {u.ack_decision !== 'dismissed' && (
-              <button disabled={busy} onClick={() => ack('dismissed')} style={miniBtn}>Dismiss</button>
-            )}
-          </div>
-        )}
+    <form onSubmit={submit} style={panelStyle}>
+      <h3 style={subHeadStyle}>New use case</h3>
+      <label style={lbl}>Title<input style={inp} value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} /></label>
+      <label style={lbl}>Summary
+        <textarea style={{ ...inp, minHeight: 120, fontFamily: 'inherit' }} value={summary} onChange={(e) => setSummary(e.target.value)} required maxLength={5000} placeholder="What happened? What did the model do well or poorly? Anything other newsrooms should know?" />
+      </label>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <label style={lbl}>Outcome
+          <select style={inp} value={outcome} onChange={(e) => setOutcome(e.target.value as UseCase['outcome'])}>
+            <option value="positive">positive</option>
+            <option value="negative">negative</option>
+            <option value="mixed">mixed</option>
+          </select>
+        </label>
+        <label style={{ ...lbl, flex: 1 }}>Agents involved (comma-separated)
+          <input style={inp} value={agentsText} onChange={(e) => setAgentsText(e.target.value)} placeholder="verifier, drafter" />
+        </label>
+        <label style={{ ...lbl, flex: 1 }}>Tags (comma-separated)
+          <input style={inp} value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="POPIA, source-protection" />
+        </label>
       </div>
-    </div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, marginTop: 8 }}>
+        <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />
+        Share with cohort (your newsroom name is hidden; other newsrooms see the summary anonymously)
+      </label>
+      {error && <ErrorBox>{error}</ErrorBox>}
+      <div style={{ marginTop: 12 }}>
+        <button type="submit" disabled={submitting} style={primaryBtnStyle}>{submitting ? 'Saving…' : 'Save use case'}</button>
+      </div>
+    </form>
   );
 }
 
-function AddUpdateForm({ isAdmin, onCancel, onCreated }: { isAdmin: boolean; onCancel: () => void; onCreated: (u: Update) => void }) {
+// ─── Sources ───────────────────────────────────────────────────────────────
+
+function SourcesTab() {
+  const [rows, setRows] = useState<SourceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/learning/sources')
+      .then((r) => r.json())
+      .then((j) => { if (j.error) throw new Error(j.error); setRows(j.rows); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Hint>Loading…</Hint>;
+  if (error) return <ErrorBox>{error}</ErrorBox>;
+  if (rows.length === 0) return <Hint>No sources tracked yet.</Hint>;
+
+  return (
+    <section style={panelStyle}>
+      <h3 style={subHeadStyle}>Sources ({rows.length})</h3>
+      <p style={{ fontSize: 12, color: '#666', margin: '0 0 10px' }}>
+        Publishers feeding the Tracker. Volume + recency + severity mix per source.
+      </p>
+      <table style={tableStyle}>
+        <thead>
+          <tr>
+            <Th>Publisher</Th><Th>Entries</Th><Th>Urgent</Th><Th>Advisory</Th><Th>Countries</Th><Th>Last update</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.source_publisher}>
+              <Td><strong>{r.source_publisher}</strong></Td>
+              <Td>{r.entry_count}</Td>
+              <Td style={{ color: r.urgent > 0 ? '#a00' : '#888' }}>{r.urgent}</Td>
+              <Td style={{ color: r.advisory > 0 ? '#915d00' : '#888' }}>{r.advisory}</Td>
+              <Td style={{ fontSize: 11, color: '#666' }}>{(r.countries || []).join(', ') || '—'}</Td>
+              <Td style={{ color: '#666' }}>{shortDate(r.last_update)}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+// ─── Submit ────────────────────────────────────────────────────────────────
+
+function SubmitTab() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [kind, setKind] = useState<Update['kind']>('governance');
@@ -209,271 +588,241 @@ function AddUpdateForm({ isAdmin, onCancel, onCreated }: { isAdmin: boolean; onC
   const [publisher, setPublisher] = useState('');
   const [url, setUrl] = useState('');
   const [publishedAt, setPublishedAt] = useState('');
-  const [scope, setScope] = useState('');
-  const [cohort, setCohort] = useState(false);
+  const [countriesText, setCountriesText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   async function submit(e: FormEvent) {
     e.preventDefault();
-    setBusy(true); setErr(null);
+    setBusy(true); setError(null); setSavedId(null);
     try {
-      const res = await fetch('/api/learning/updates', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const res = await fetch('/api/learning/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title, body, kind, severity,
-          source_publisher: publisher || undefined,
-          source_url: url || undefined,
-          published_at: publishedAt || undefined,
-          country_scope: scope.split(',').map(s => s.trim()).filter(Boolean),
-          cohort,
+          title: title.trim(),
+          body: body.trim(),
+          kind, severity,
+          source_publisher: publisher.trim() || null,
+          source_url: url.trim() || null,
+          published_at: publishedAt || null,
+          country_scope: countriesText.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean),
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed');
-      onCreated(data.update);
-    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+      setSavedId(j.id);
+      setTitle(''); setBody(''); setPublisher(''); setUrl(''); setPublishedAt(''); setCountriesText('');
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
   }
-  return (
-    <form onSubmit={submit} style={{ ...cardStyle, marginBottom: 8 }}>
-      <Field label="Title"><input required value={title} onChange={e => setTitle(e.target.value)} style={inputStyle} /></Field>
-      <Field label="Body"><textarea required rows={4} value={body} onChange={e => setBody(e.target.value)} style={{ ...inputStyle, fontFamily: 'inherit' }} /></Field>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-        <Field label="Kind">
-          <select value={kind} onChange={e => setKind(e.target.value as Update['kind'])} style={inputStyle}>
-            <option value="governance">Governance</option>
-            <option value="ethics">Ethics</option>
-            <option value="data_law">Data law</option>
-            <option value="security">Security</option>
-            <option value="model_change">Model change</option>
-            <option value="platform_takedown">Platform takedown</option>
-            <option value="press_freedom">Press freedom</option>
-          </select>
-        </Field>
-        <Field label="Severity">
-          <select value={severity} onChange={e => setSeverity(e.target.value as Update['severity'])} style={inputStyle}>
-            <option value="info">Info</option>
-            <option value="advisory">Advisory</option>
-            <option value="urgent">Urgent</option>
-          </select>
-        </Field>
-        <Field label="Country scope (comma-sep)"><input value={scope} onChange={e => setScope(e.target.value)} style={inputStyle} placeholder="ZA, ZM" /></Field>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 8 }}>
-        <Field label="Publisher"><input value={publisher} onChange={e => setPublisher(e.target.value)} style={inputStyle} /></Field>
-        <Field label="Source URL"><input type="url" value={url} onChange={e => setUrl(e.target.value)} style={inputStyle} /></Field>
-        <Field label="Published"><input type="date" value={publishedAt} onChange={e => setPublishedAt(e.target.value)} style={inputStyle} /></Field>
-      </div>
-      {isAdmin && (
-        <label style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-          <input type="checkbox" checked={cohort} onChange={e => setCohort(e.target.checked)} />
-          Share across the cohort (visible to all newsrooms)
-        </label>
-      )}
-      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-        <button type="submit" disabled={busy || !title.trim() || !body.trim()} style={primaryBtn}>{busy ? 'Saving…' : 'Add update'}</button>
-        <button type="button" onClick={onCancel} style={ghostBtn}>Cancel</button>
-        {err && <span style={{ color: '#b00', fontSize: 13 }}>{err}</span>}
-      </div>
-    </form>
-  );
-}
 
-// ─── Cohort metrics ────────────────────────────────────────────────────────
-
-function CohortSection({ metrics }: { metrics: Metrics }) {
   return (
-    <section style={{ marginTop: 28 }}>
-      <h2 style={{ fontSize: 16, margin: 0 }}>📊 Cohort meta-analytics (last 30 days)</h2>
-      <p style={{ fontSize: 13, color: '#666', margin: '2px 0 8px' }}>
-        Anonymised aggregates across all {metrics.cohort_size} newsrooms in the cohort. Your newsroom is included in the rollup.
+    <section style={panelStyle}>
+      <h3 style={subHeadStyle}>Submit a new entry</h3>
+      <p style={{ fontSize: 13, color: '#444', margin: '0 0 12px' }}>
+        Saw a legal / regulatory / ethics development that the cohort should know about? Submit it here. It enters
+        the queue as <code style={codeStyle}>pending</code> until a cohort admin reviews and promotes it to{' '}
+        <code style={codeStyle}>live</code>.
       </p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
-        <MetricCard label="Newsrooms in cohort" value={metrics.cohort_size} />
-        <MetricCard label="Workflows total" value={metrics.workflows_total} />
-        <MetricCard label="Workflow runs (30d)" value={metrics.workflow_runs_30d} />
-      </div>
-      <h3 style={{ fontSize: 13, color: '#666', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 14, marginBottom: 6 }}>Briefs by agent (30d)</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
-        {metrics.briefs_by_agent_30d.map(b => (
-          <MetricCard key={b.agent} label={b.agent} value={b.n} />
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8, marginTop: 10 }}>
-        <DetailCard
-          label="Verifier"
-          rows={[
-            ['Runs (30d)', metrics.verifier.runs_30d],
-            ['…with credibility-map matches', metrics.verifier.runs_with_credibility_match],
-            ...metrics.verifier.by_status.map(r => [`status: ${r.status}`, r.n]) as Array<[string, number]>,
-          ]}
-        />
-        <DetailCard
-          label="Social Listener"
-          rows={[
-            ['Signals (30d)', metrics.social.signals_30d],
-            ['…matched a documented IO network', metrics.social.signals_with_io_network_match],
-            ...metrics.social.by_status.map(r => [`status: ${r.status}`, r.n]) as Array<[string, number]>,
-          ]}
-        />
-        <DetailCard
-          label="Outbound sends"
-          rows={[
-            ['Sends (30d)', metrics.distribution.sends_30d],
-            ...metrics.distribution.by_status.map(r => [`status: ${r.status}`, r.n]) as Array<[string, number]>,
-          ]}
-        />
-        <DetailCard
-          label="Audience consultations"
-          rows={[
-            ['Total (30d)', metrics.audience.consultations_30d],
-            ...metrics.audience.by_kind.map(r => [`kind: ${r.kind}`, r.n]) as Array<[string, number]>,
-          ]}
-        />
-      </div>
+      {savedId && <div style={{ ...panelStyle, background: '#e6f4ea', border: '1px solid #b6e0bd' }}>
+        Submission saved (<code style={codeStyle}>{savedId.slice(0, 8)}</code>) and queued for review.
+      </div>}
+      <form onSubmit={submit}>
+        <label style={lbl}>Title<input style={inp} value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={240} placeholder="Court strikes down Y, or POPIA amendment Z, or ..." /></label>
+        <label style={lbl}>Body
+          <textarea style={{ ...inp, minHeight: 140, fontFamily: 'inherit' }} value={body} onChange={(e) => setBody(e.target.value)} required maxLength={8000} placeholder="What happened. Why it matters to African newsrooms. Direct relevance to newsroom workflows." />
+        </label>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <label style={lbl}>Kind
+            <select style={inp} value={kind} onChange={(e) => setKind(e.target.value as Update['kind'])}>
+              {Object.entries(KIND_LABELS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </select>
+          </label>
+          <label style={lbl}>Severity
+            <select style={inp} value={severity} onChange={(e) => setSeverity(e.target.value as Update['severity'])}>
+              <option value="info">info</option>
+              <option value="advisory">advisory</option>
+              <option value="urgent">urgent</option>
+            </select>
+          </label>
+          <label style={lbl}>Published date
+            <input style={inp} type="date" value={publishedAt} onChange={(e) => setPublishedAt(e.target.value)} />
+          </label>
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <label style={{ ...lbl, flex: 1 }}>Source publisher
+            <input style={inp} value={publisher} onChange={(e) => setPublisher(e.target.value)} placeholder="Information Regulator (South Africa)" />
+          </label>
+          <label style={{ ...lbl, flex: 1 }}>Source URL
+            <input style={inp} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+          </label>
+          <label style={{ ...lbl, flex: 1 }}>Country scope
+            <input style={inp} value={countriesText} onChange={(e) => setCountriesText(e.target.value)} placeholder="ZA, ZW, KE" />
+          </label>
+        </div>
+        {error && <ErrorBox>{error}</ErrorBox>}
+        <button type="submit" disabled={busy} style={{ ...primaryBtnStyle, marginTop: 12 }}>
+          {busy ? 'Submitting…' : 'Submit for review'}
+        </button>
+      </form>
     </section>
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div style={{ ...cardStyle, padding: '10px 12px' }}>
-      <div style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 600, marginTop: 2 }}>{value}</div>
-    </div>
-  );
-}
-function DetailCard({ label, rows }: { label: string; rows: Array<[string, number]> }) {
-  return (
-    <div style={{ ...cardStyle, padding: '10px 12px' }}>
-      <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
-      <table style={{ width: '100%', fontSize: 12, marginTop: 6, borderCollapse: 'collapse' }}>
-        <tbody>
-          {rows.map(([k, v], i) => (
-            <tr key={i} style={{ borderTop: i === 0 ? 'none' : '1px solid #f0f0f0' }}>
-              <td style={{ padding: '4px 0', color: '#666' }}>{k}</td>
-              <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: 600 }}>{v}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+// ─── Shared bits ───────────────────────────────────────────────────────────
 
-// ─── Promoted workflows ────────────────────────────────────────────────────
-
-function PromotionsSection({
-  promotions, canEdit, isAdmin, onChange, onRefresh,
-}: {
-  promotions: Promotion[]; canEdit: boolean; isAdmin: boolean;
-  onChange: (rows: Promotion[]) => void; onRefresh: () => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  async function recompute() {
-    setBusy(true);
-    const res = await fetch('/api/learning/workflows', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
-    });
-    setBusy(false);
-    if (!res.ok) { alert((await res.json()).error || 'Failed'); return; }
-    onRefresh();
-  }
-  async function adopt(promotionId: string) {
-    setBusy(true);
-    const res = await fetch(`/api/learning/workflows/${promotionId}/adopt`, { method: 'POST' });
-    setBusy(false);
-    const data = await res.json();
-    if (!res.ok) { alert(data.error || 'Failed'); return; }
-    onChange(promotions.map(p => p.id === promotionId ? { ...p, adoption_id: data.adoption.id, adopted_at: data.adoption.created_at } : p));
-  }
+function EntryList({ rows }: { rows: Update[] }) {
+  if (rows.length === 0) return <Hint>No entries.</Hint>;
   return (
-    <section style={{ marginTop: 28 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
-        <div>
-          <h2 style={{ fontSize: 16, margin: 0 }}>⭐ Promoted workflows</h2>
-          <p style={{ fontSize: 13, color: '#666', margin: '2px 0 0' }}>
-            Workflows the cohort has adopted at scale. Click adopt to add to your newsroom&apos;s starter library.
-          </p>
-        </div>
-        {isAdmin && (
-          <button onClick={recompute} disabled={busy} style={ghostBtn}>{busy ? 'Recomputing…' : 'Recompute promotions'}</button>
-        )}
-      </div>
-      {promotions.length === 0 ? (
-        <Empty text="No promoted workflows yet — promotions appear after a workflow has been adopted by ≥2 cohort newsrooms with ≥5 runs." />
-      ) : (
-        <div style={{ display: 'grid', gap: 8 }}>
-          {promotions.map(p => (
-            <div key={p.id} style={cardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{ flex: 1 }}>
-                  <strong style={{ fontSize: 14 }}>{p.title}</strong>
-                  {p.problem_category && <Tag muted>{p.problem_category}</Tag>}
-                  <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
-                    Origin: {p.origin_newsroom_name || 'unknown'} ·
-                    {' '}{p.cohort_adopter_count} cohort adopters · {p.usage_count} runs
-                    {p.cohort_success_rate != null && <> · success {(parseFloat(String(p.cohort_success_rate)) * 100).toFixed(0)}%</>}
-                  </div>
-                  {p.problem_statement && <p style={{ fontSize: 13, color: '#444', margin: '6px 0 0', lineHeight: 1.5 }}>{p.problem_statement}</p>}
-                  {p.recommendation_note && <p style={{ fontSize: 12, color: '#5a3a99', margin: '6px 0 0', fontStyle: 'italic' }}>{p.recommendation_note}</p>}
-                </div>
-                {canEdit && (p.adoption_id ? (
-                  <span style={{ fontSize: 12, color: '#1a5d1a', alignSelf: 'center' }}>✓ adopted</span>
-                ) : (
-                  <button onClick={() => adopt(p.id)} disabled={busy} style={primaryBtn}>Adopt</button>
-                ))}
-              </div>
+    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+      {rows.map((u) => (
+        <li key={u.id} style={{ padding: '12px 0', borderTop: '1px solid #f0f0f0' }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
+            <SeverityPill severity={u.severity} />
+            <KindPill kind={u.kind} />
+            {(u.country_scope || []).map((c) => <span key={c} style={countryPill}>{c}</span>)}
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#666' }}>
+              {u.published_at ? shortDate(u.published_at) : '—'}
+            </span>
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>{u.title}</div>
+          <p style={{ fontSize: 13, color: '#444', lineHeight: 1.5, margin: '4px 0 0' }}>{u.body}</p>
+          {u.source_publisher && (
+            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+              {u.source_url
+                ? <a href={u.source_url} target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>{u.source_publisher}</a>
+                : u.source_publisher}
             </div>
-          ))}
-        </div>
-      )}
-    </section>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 
-// ─── Shared ────────────────────────────────────────────────────────────────
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label style={{ display: 'block', marginTop: 4 }}>
-      <div style={{ fontSize: 12, color: '#555', marginBottom: 3 }}>{label}</div>
-      {children}
-    </label>
-  );
-}
-function Empty({ text }: { text: string }) {
-  return <div style={{ padding: 18, background: 'white', border: '1px dashed #d0d0d0', borderRadius: 8, color: '#777', fontSize: 13, textAlign: 'center' }}>{text}</div>;
-}
-function Tag({ children, muted = false, accent }: { children: React.ReactNode; muted?: boolean; accent?: { bg: string; fg: string } }) {
-  const style = accent
-    ? { background: accent.bg, color: accent.fg }
-    : muted ? { background: '#eef0f3', color: '#555' } : { background: '#e6f0ff', color: '#0044aa' };
-  return <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 10, marginLeft: 4, ...style }}>{children}</span>;
+function SeverityPill({ severity }: { severity: Update['severity'] }) {
+  const m: Record<Update['severity'], { bg: string; fg: string }> = {
+    urgent: { bg: '#fde8e8', fg: '#a00' },
+    advisory: { bg: '#fff4e1', fg: '#915d00' },
+    info: { bg: '#e6f0fb', fg: '#0066cc' },
+  };
+  return <span style={{ ...pillBase, background: m[severity].bg, color: m[severity].fg }}>{severity}</span>;
 }
 
-const cardStyle: React.CSSProperties = {
-  background: 'white', border: '1px solid #e5e5e5', borderRadius: 8,
-  padding: 12, boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-};
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '6px 8px', fontSize: 13,
-  border: '1px solid #d0d0d0', borderRadius: 4, fontFamily: 'inherit',
-};
-const primaryBtn: React.CSSProperties = {
-  background: '#0066cc', color: 'white', border: 'none',
-  padding: '6px 14px', borderRadius: 4, fontSize: 13, cursor: 'pointer',
-};
-const ghostBtn: React.CSSProperties = {
-  background: 'white', color: '#0066cc', border: '1px solid #0066cc',
-  padding: '6px 14px', borderRadius: 4, fontSize: 13, cursor: 'pointer',
-};
-const miniBtn: React.CSSProperties = {
-  background: 'white', color: '#444', border: '1px solid #d0d0d0',
-  padding: '4px 10px', borderRadius: 4, fontSize: 11, cursor: 'pointer',
-};
+function KindPill({ kind }: { kind: Update['kind'] }) {
+  return <span style={{ ...pillBase, background: '#f0f0f0', color: '#444' }}>{KIND_LABELS[kind]}</span>;
+}
 
-function severityTone(s: 'info' | 'advisory' | 'urgent') {
-  if (s === 'urgent') return { bg: '#ffe6e6', fg: '#a02020' };
-  if (s === 'advisory') return { bg: '#fff8e6', fg: '#8a5400' };
-  return { bg: '#e0f0ff', fg: '#0044aa' };
+function Markdown({ text }: { text: string }) {
+  // Very simple inline markdown — headers + bullets + bold. Avoids
+  // shipping a parser dep for this one consumer.
+  const lines = text.split('\n');
+  const out: React.ReactNode[] = [];
+  let bulletBuffer: React.ReactNode[] = [];
+  function flushBullets() {
+    if (bulletBuffer.length > 0) {
+      out.push(<ul key={`u${out.length}`} style={{ paddingLeft: 18, margin: '4px 0' }}>{bulletBuffer}</ul>);
+      bulletBuffer = [];
+    }
+  }
+  lines.forEach((ln, i) => {
+    if (/^##\s/.test(ln)) { flushBullets(); out.push(<h4 key={i} style={{ fontSize: 14, margin: '10px 0 4px' }}>{ln.replace(/^##\s/, '')}</h4>); }
+    else if (/^#\s/.test(ln)) { flushBullets(); out.push(<h3 key={i} style={{ fontSize: 16, margin: '12px 0 6px' }}>{ln.replace(/^#\s/, '')}</h3>); }
+    else if (/^-\s/.test(ln)) { bulletBuffer.push(<li key={i}>{renderInline(ln.replace(/^-\s/, ''))}</li>); }
+    else if (/^\d+\.\s/.test(ln)) { bulletBuffer.push(<li key={i}>{renderInline(ln.replace(/^\d+\.\s/, ''))}</li>); }
+    else if (ln.trim() === '') { flushBullets(); out.push(<div key={i} style={{ height: 6 }} />); }
+    else { flushBullets(); out.push(<p key={i} style={{ margin: '4px 0' }}>{renderInline(ln)}</p>); }
+  });
+  flushBullets();
+  return <>{out}</>;
+}
+function renderInline(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((p, i) => {
+    if (/^\*\*[^*]+\*\*$/.test(p)) return <strong key={i}>{p.slice(2, -2)}</strong>;
+    return <span key={i}>{p}</span>;
+  });
+}
+
+function Hint({ children }: { children: React.ReactNode }) {
+  return <div style={{ ...panelStyle, color: '#666', fontSize: 13 }}>{children}</div>;
+}
+function ErrorBox({ children }: { children: React.ReactNode }) {
+  return <div style={errorBoxStyle}>{children}</div>;
+}
+function Th({ children }: { children: React.ReactNode }) {
+  return <th style={{
+    textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid #ddd',
+    fontSize: 12, color: '#666', textTransform: 'uppercase', letterSpacing: 0.3,
+  }}>{children}</th>;
+}
+function Td({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return <td style={{ padding: '8px 10px', borderBottom: '1px solid #f0f0f0', fontSize: 13, ...style }}>{children}</td>;
+}
+function shortDate(iso: string | null | undefined) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch { return '—'; }
+}
+function shortUrl(u: string) {
+  try { const url = new URL(u); return url.hostname + url.pathname.slice(0, 40); }
+  catch { return u.slice(0, 60); }
+}
+
+const panelStyle: React.CSSProperties = {
+  background: 'white', border: '1px solid #e5e5e5', borderRadius: 8, padding: 16, marginBottom: 16,
+};
+const subHeadStyle: React.CSSProperties = {
+  fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, color: '#666', margin: '0 0 10px',
+};
+const codeStyle: React.CSSProperties = {
+  fontSize: 11, background: '#f3f4f6', padding: '1px 5px', borderRadius: 3, color: '#555',
+};
+const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse' };
+const chipStyle: React.CSSProperties = {
+  fontSize: 11, padding: '2px 7px', background: '#e0eaff', color: '#003a99', borderRadius: 4,
+};
+const pillBase: React.CSSProperties = {
+  display: 'inline-block', padding: '1px 7px', borderRadius: 4,
+  fontSize: 11, fontWeight: 600,
+};
+const countryPill: React.CSSProperties = {
+  ...pillBase, background: '#f0f0f0', color: '#555', fontWeight: 500,
+};
+const errorBoxStyle: React.CSSProperties = {
+  background: '#fff3f3', border: '1px solid #f5b1b1', color: '#900', padding: 10, borderRadius: 6,
+  fontSize: 13, marginBottom: 16,
+};
+const lbl: React.CSSProperties = { display: 'block', fontSize: 13, color: '#444', margin: '8px 0', fontWeight: 500 };
+const inp: React.CSSProperties = {
+  display: 'block', width: '100%', padding: '7px 10px', fontSize: 13,
+  border: '1px solid #ccc', borderRadius: 4, marginTop: 4, boxSizing: 'border-box',
+};
+const primaryBtnStyle: React.CSSProperties = {
+  padding: '8px 14px', background: '#0066cc', color: 'white', border: 'none', borderRadius: 4,
+  fontSize: 13, cursor: 'pointer',
+};
+function pillBtnStyle(active: boolean): React.CSSProperties {
+  return {
+    padding: '4px 10px', fontSize: 12, borderRadius: 4, cursor: 'pointer',
+    background: active ? '#0066cc' : 'white',
+    color: active ? 'white' : '#444',
+    border: '1px solid ' + (active ? '#0066cc' : '#ccc'),
+    fontWeight: active ? 600 : 400,
+  };
+}
+function tabBtnStyle(active: boolean): React.CSSProperties {
+  return {
+    padding: '10px 16px', fontSize: 14,
+    background: active ? '#0066cc' : 'transparent',
+    color: active ? 'white' : '#444',
+    border: 'none', borderRadius: '6px 6px 0 0', cursor: 'pointer',
+    fontWeight: active ? 600 : 400,
+  };
 }

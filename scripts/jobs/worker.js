@@ -28,6 +28,8 @@ const HANDLER_MODULES = [
   require('../../lib/jobs/handlers/research-scrape-one'),
   // Step 4 — style-fingerprint analyser
   require('../../lib/jobs/handlers/style-fingerprint'),
+  // V2 Step 3 — Tracker weekly digest
+  require('../../lib/jobs/handlers/tracker-digest'),
 ];
 
 // Built-in smoke handler — proves the wire works end-to-end without any
