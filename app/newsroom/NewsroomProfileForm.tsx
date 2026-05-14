@@ -10,6 +10,7 @@ import ExternalToolLinks from '@/app/components/ExternalToolLinks';
 import GlobalNav from '@/app/components/GlobalNav';
 import TopicTagsEditor from './TopicTagsEditor';
 import TrustedSourcesEditor from './TrustedSourcesEditor';
+import CrawlRulesEditor from './CrawlRulesEditor';
 
 type ImpactStory = { headline?: string; year?: string | number; outcome?: string; source_url?: string };
 type Award = { name?: string; year?: string | number; body?: string };
@@ -243,6 +244,7 @@ export default function NewsroomProfileForm({
 
         <TopicTagsEditor canEdit={canEdit} />
         <TrustedSourcesEditor canEdit={canEdit} />
+        <CrawlRulesEditor canEdit={canEdit} />
 
         {canEdit && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 24, padding: '12px 0', borderTop: '1px solid #e5e5e5' }}>
