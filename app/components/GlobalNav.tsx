@@ -113,6 +113,7 @@ export default function GlobalNav({
               <MenuLink href="/fundraiser" title="Fundraiser" desc="Donor reports & grants" />
               <MenuLink href="/operations" title="Operations Manager" desc="Calendar, freelancers, finance" />
               <MenuLink href="/distribution" title="Digital News Gatherer" desc="Inbound submissions triage" />
+              <MenuLink href="/learning" title="AI Legal & Regulation Tracker" desc="AI law, ethics, governance feed" />
             </div>
           )}
         </div>
