@@ -8,9 +8,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
 import GlobalNav from '@/app/components/GlobalNav';
+import EditPills from '@/app/components/EditPills';
 
 type Run = {
   id: string;
+  workflow_run_id: string | null;
   title: string;
   claim_text: string;
   context_brief: string | null;
@@ -167,6 +169,20 @@ export default function RunDetail({ run, canEdit }: { run: Run; canEdit: boolean
         {view?.overall_assessment && (
           <Card title="Overall assessment">
             <p style={{ fontSize: 14, color: '#333', margin: 0, lineHeight: 1.5 }}>{view.overall_assessment}</p>
+            {run.workflow_run_id && (
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #f0f0f0' }}>
+                <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, color: '#888', marginBottom: 6 }}>
+                  Feedback on this output
+                </div>
+                <EditPills
+                  workflowRunId={run.workflow_run_id}
+                  originalText={view.overall_assessment}
+                />
+                <div style={{ fontSize: 11, color: '#999', marginTop: 6 }}>
+                  Recorded in the Observatory — helps the platform learn which outputs land and which need work.
+                </div>
+              </div>
+            )}
           </Card>
         )}
 
