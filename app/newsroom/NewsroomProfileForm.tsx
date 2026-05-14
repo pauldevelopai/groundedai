@@ -9,6 +9,7 @@ import Link from 'next/link';
 import ExternalToolLinks from '@/app/components/ExternalToolLinks';
 import GlobalNav from '@/app/components/GlobalNav';
 import TopicTagsEditor from './TopicTagsEditor';
+import TrustedSourcesEditor from './TrustedSourcesEditor';
 
 type ImpactStory = { headline?: string; year?: string | number; outcome?: string; source_url?: string };
 type Award = { name?: string; year?: string | number; body?: string };
@@ -241,6 +242,7 @@ export default function NewsroomProfileForm({
         </Section>
 
         <TopicTagsEditor canEdit={canEdit} />
+        <TrustedSourcesEditor canEdit={canEdit} />
 
         {canEdit && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 24, padding: '12px 0', borderTop: '1px solid #e5e5e5' }}>
