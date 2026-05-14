@@ -15,6 +15,11 @@ import { NextResponse } from 'next/server';
 import { getCurrentSession } from '@/app/lib/session';
 import { pool } from '@/lib/db';
 import { runWorkflow } from '@/lib/workflows/runner';
+const {
+  startWorkflowExecution,
+  finishWorkflowExecution,
+  attachRunToExecution,
+} = require('@/lib/observatory/log');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -65,6 +70,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   );
   const runId = runInsert.rows[0].id;
 
+  // Observatory: parent execution row + back-link the workflow_runs row.
+  const inputSummary = JSON.stringify(inputs).slice(0, 500);
+  const executionId: string | null = await startWorkflowExecution({
+    newsroomId: session.newsroomId,
+    userId: session.userId,
+    workflowId: workflow.id,
+    workflowSlug: workflow.slug,
+    triggeredVia: 'user_run',
+    inputSummary,
+  });
+  await attachRunToExecution(runId, executionId);
+
   try {
     const { output, nodeOutputs, nodeCosts, totalCost, durationMs } = await runWorkflow(
       workflow.definition,
@@ -96,6 +113,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       ]
     );
 
+    await finishWorkflowExecution(executionId, {
+      status: 'completed',
+      nodeCount: Array.isArray(nodeCosts) ? nodeCosts.length : null,
+      totalCostUsd: totalCost?.costUsd ?? null,
+      totalDurationMs: durationMs,
+    });
+
     return NextResponse.json({ runId, output, nodeOutputs, nodeCosts, totalCost, durationMs });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -103,6 +127,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       `UPDATE workflow_runs SET status = 'failed', error = $2, completed_at = NOW() WHERE id = $1`,
       [runId, message]
     );
+    await finishWorkflowExecution(executionId, { status: 'failed', error: message });
     return NextResponse.json({ error: message, runId }, { status: 500 });
   }
 }

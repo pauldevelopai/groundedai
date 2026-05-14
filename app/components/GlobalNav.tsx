@@ -128,6 +128,7 @@ export default function GlobalNav({
         )}
 
         <div style={{ display: 'flex', gap: 12, borderLeft: '1px solid #ddd', paddingLeft: 16 }}>
+          <Link href="/observatory" style={{ color: '#666', textDecoration: 'none' }}>Observatory</Link>
           <Link href="/learning" style={{ color: '#666', textDecoration: 'none' }}>Learning</Link>
           <Link href="/guide" style={{ color: '#666', textDecoration: 'none' }}>Help</Link>
         </div>
