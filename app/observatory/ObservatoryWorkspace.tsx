@@ -10,6 +10,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import GlobalNav from '@/app/components/GlobalNav';
 
 type RecentRun = {
@@ -166,7 +167,7 @@ function RecentRunsView({ rows }: { rows: RecentRun[] }) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} style={trStyle}>
-              <Td>{shortDate(r.started_at)}</Td>
+              <Td><Link href={`/observatory/runs/${r.id}`} style={linkStyle}>{shortDate(r.started_at)}</Link></Td>
               <Td><code style={codeStyle}>{r.workflow_slug || '(ad-hoc)'}</code></Td>
               <Td style={{ color: '#666' }}>{r.user_email}</Td>
               <Td><StatusPill status={r.status} /></Td>
@@ -200,7 +201,7 @@ function RecentInvocationsView({ rows }: { rows: RecentInvocation[] }) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} style={trStyle}>
-              <Td>{shortDate(r.created_at)}</Td>
+              <Td><Link href={`/observatory/runs/${r.id}`} style={linkStyle}>{shortDate(r.created_at)}</Link></Td>
               <Td><code style={codeStyle}>{r.agent}</code></Td>
               <Td style={{ color: '#666' }}>{r.user_email}</Td>
               <Td><StatusPill status={r.status} /></Td>
@@ -360,6 +361,7 @@ const trStyle: React.CSSProperties = {};
 const codeStyle: React.CSSProperties = {
   fontSize: 12, background: '#f3f4f6', padding: '1px 6px', borderRadius: 3, color: '#333',
 };
+const linkStyle: React.CSSProperties = { color: '#0a5da0', textDecoration: 'none', borderBottom: '1px dotted #0a5da0' };
 const errorBoxStyle: React.CSSProperties = {
   background: '#fff3f3', border: '1px solid #f5b1b1', color: '#900', padding: 10, borderRadius: 6,
   fontSize: 13, marginBottom: 16,

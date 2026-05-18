@@ -8,9 +8,9 @@ const assert = require('node:assert/strict');
 const tools = require('../../lib/agents/agentic/tools');
 const invokeAgent = require('../../lib/agents/agentic/tools/invoke_agent');
 
-test('tools.all exports the three V2-Step-4 tools', () => {
+test('tools.all exports the V2 Step 4 tool palette', () => {
   const names = tools.all.map((t) => t.name).sort();
-  assert.deepEqual(names, ['archive_search', 'invoke_agent', 'web_fetch']);
+  assert.deepEqual(names, ['archive_search', 'db_read', 'invoke_agent', 'web_fetch']);
 });
 
 test('each tool exposes name, description, input_schema, run', () => {
