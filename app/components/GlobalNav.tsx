@@ -118,6 +118,9 @@ export default function GlobalNav({
                 <MenuLink href="/audience" title="Audience Analytics Manager" desc="Analytics & consultations" />
                 <MenuLink href="/operations" title="Operations Manager" desc="Calendar, freelancers, finance" />
                 <MenuLink href="/learning" title="AI Legal, Ethics & Regulation Tracker" desc="AI law, ethics, governance feed" />
+                {(role === 'builder' || role === 'admin') && (
+                  <MenuLink href="/security" title="Digital Security Audit" desc="External-tool inventory & data-leak audit" />
+                )}
               </div>
             </div>
           )}
