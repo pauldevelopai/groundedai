@@ -26,26 +26,36 @@ pilot newsroom installs hardware.
 
 ---
 
-## Install (manual; install.sh follows)
+## Install (one script)
 
 ```bash
 git clone https://github.com/your-org/grounded.git
+cd grounded/appliances
+bash install.sh
+```
+
+The installer:
+1. Verifies Node 22+ is on PATH (aborts with install instructions if not).
+2. Installs Ollama (via Homebrew on macOS, via the official installer on Linux) and pulls `gemma3:12b` (~9 GB).
+3. Copies `.env.example` → `.env` if it doesn't exist; aborts so you can fill in `APPLIANCE_SECRET` / `APPLIANCE_ID` / `CENTRAL_URL` from the central app's `/team` page.
+4. On the second run (once `.env` is filled in), registers a persistent service unit:
+   - **macOS:** launchd plist at `~/Library/LaunchAgents/co.developai.grounded-appliance.plist`.
+   - **Linux:** systemd unit at `/etc/systemd/system/grounded-appliance.service`.
+5. Starts the appliance. Logs land in `appliances/logs/`.
+
+The script is idempotent — run it again to re-verify and reload the unit. Set `OLLAMA_MODEL=gemma3:27b` in the environment first if you want a heavier model.
+
+### Manual run (development)
+
+```bash
 cd grounded/appliances/agent-runner
-
-# Copy and fill in the env file.
-cp ../.env.example ../.env
-$EDITOR ../.env
-
-# Run.
+set -a; source ../.env; set +a
 node server.js
 ```
 
-The process listens on `APPLIANCE_PORT` (default `8443`). It pings the
-central app every `PING_INTERVAL_MS` so the central `/team` "Appliance
-online" indicator stays current.
+The process listens on `APPLIANCE_PORT` (default `8443`). It pings the central app every `PING_INTERVAL_MS` so the central `/team` "Appliance online" indicator stays current.
 
-For production, wrap it with systemd / launchd / a Docker container,
-and put a TLS-terminating reverse proxy in front.
+For production behind a public hostname, put a TLS-terminating reverse proxy (or Cloudflare Tunnel / Tailscale) in front. The appliance itself speaks plain HTTP on the listen port.
 
 ---
 
@@ -110,9 +120,9 @@ Ollama execution in Step 6.x.
 ## What's missing (Step 6.x backlog)
 
 - Real Ollama-backed agent execution (currently STUB).
-- A bundled `install.sh` (manual install is documented above).
-- An Ollama-pull step that ensures the right model is present.
-- TLS cert provisioning guidance for newsrooms without a reverse proxy.
+- TLS cert provisioning guidance for newsrooms without a reverse proxy
+  (the installer assumes you'll front it with Tailscale / Cloudflare
+  Tunnel / nginx).
 - A self-update path so the appliance can pull new central-app contract
   versions without manual git pulls.
 - Multi-newsroom appliance pool (V2 is one-per-newsroom).
