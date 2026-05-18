@@ -62,6 +62,7 @@ export type AgentMeta = {
   slug: string;
   name: string;
   icon?: string;
+  category?: 'agent' | 'tool';
   description: string;
   triggers: string[];
   inputs: Record<string, { type: string; required?: boolean; label?: string; description?: string }>;
@@ -891,30 +892,18 @@ function Inner({
 
           {activeWorkflow && (
             <div style={{ padding: 12, overflowY: 'auto', flex: 1 }}>
-              <h3 style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#777', margin: '0 0 8px' }}>Agents</h3>
-              {agents.map((a) => (
-                <div
-                  key={a.slug}
-                  draggable={editable}
-                  onDragStart={(e) => {
-                    if (!editable) return;
-                    e.dataTransfer.setData('application/anchor-agent', a.slug);
-                    e.dataTransfer.effectAllowed = 'move';
-                  }}
-                  style={{
-                    padding: 10,
-                    marginBottom: 8,
-                    border: '1px solid #ddd',
-                    borderRadius: 4,
-                    background: 'white',
-                    cursor: editable ? 'grab' : 'not-allowed',
-                    opacity: editable ? 1 : 0.5,
-                  }}
-                >
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{a.name}</div>
-                  <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{a.description}</div>
-                </div>
-              ))}
+              {(() => {
+                const journalismAgents = agents.filter((a) => (a.category || 'agent') === 'agent');
+                const tools = agents.filter((a) => a.category === 'tool');
+                return (
+                  <>
+                    <PaletteSection title="Agents" subtitle="journalism work" items={journalismAgents} editable={editable} />
+                    {tools.length > 0 && (
+                      <PaletteSection title="Tools" subtitle="newsroom operations" items={tools} editable={editable} marginTop={16} />
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </aside>
@@ -1506,6 +1495,47 @@ function WorkflowPanel({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function PaletteSection({
+  title, subtitle, items, editable, marginTop = 0,
+}: {
+  title: string;
+  subtitle: string;
+  items: AgentMeta[];
+  editable: boolean;
+  marginTop?: number;
+}) {
+  return (
+    <div style={{ marginTop }}>
+      <h3 style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#777', margin: '0 0 4px' }}>
+        {title} <span style={{ textTransform: 'none', letterSpacing: 0, color: '#aaa', fontWeight: 400 }}>· {subtitle}</span>
+      </h3>
+      {items.map((a) => (
+        <div
+          key={a.slug}
+          draggable={editable}
+          onDragStart={(e) => {
+            if (!editable) return;
+            e.dataTransfer.setData('application/anchor-agent', a.slug);
+            e.dataTransfer.effectAllowed = 'move';
+          }}
+          style={{
+            padding: 10,
+            marginBottom: 8,
+            border: '1px solid #ddd',
+            borderRadius: 4,
+            background: 'white',
+            cursor: editable ? 'grab' : 'not-allowed',
+            opacity: editable ? 1 : 0.5,
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: 14 }}>{a.name}</div>
+          <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{a.description}</div>
+        </div>
+      ))}
     </div>
   );
 }

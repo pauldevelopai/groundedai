@@ -97,23 +97,28 @@ export default function GlobalNav({
               style={{
                 position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
                 background: 'white', border: '1px solid #ddd', borderRadius: 8,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 8,
-                display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, width: 380,
-                zIndex: 100, marginTop: 4
+                boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 10,
+                width: 420, zIndex: 100, marginTop: 4
               }}
               onClick={() => setAgentsOpen(false)}
             >
-              <MenuLink href="/verifier" title="Verifier" desc="Fact-check & verify claims" />
-              <MenuLink href="/archive" title="Archivist" desc="Past coverage search" />
-              <MenuLink href="/research" title="Research" desc="Topic dossiers & intel" />
-              <MenuLink href="/translation" title="Translator" desc="Local language drafts" />
-              <MenuLink href="/audience" title="Audience Analytics Manager" desc="Analytics & consultations" />
-              <MenuLink href="/social" title="Social media listener" desc="Foreign-agent post detection" />
-              <MenuLink href="/producer" title="Audio & Video Producer" desc="Scripts, audio, vertical video" />
-              <MenuLink href="/fundraiser" title="Fundraiser" desc="Donor reports & grants" />
-              <MenuLink href="/operations" title="Operations Manager" desc="Calendar, freelancers, finance" />
-              <MenuLink href="/distribution" title="Digital News Gatherer" desc="Inbound submissions triage" />
-              <MenuLink href="/learning" title="AI Legal & Regulation Tracker" desc="AI law, ethics, governance feed" />
+              <MenuSectionHeader label="Agents — journalism work" />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 10 }}>
+                <MenuLink href="/verifier" title="Verifier" desc="Fact-check & verify claims" />
+                <MenuLink href="/archive" title="Archivist" desc="Past coverage search" />
+                <MenuLink href="/research" title="Researcher" desc="Topic dossiers & intel" />
+                <MenuLink href="/translation" title="Translator" desc="Local language drafts" />
+                <MenuLink href="/producer" title="Audio & Video Producer" desc="Scripts, audio, vertical video" />
+                <MenuLink href="/distribution" title="Digital News Gatherer" desc="Inbound submissions triage" />
+                <MenuLink href="/social" title="Social media listener" desc="Foreign-agent post detection" />
+              </div>
+              <MenuSectionHeader label="Tools — newsroom operations" />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                <MenuLink href="/fundraiser" title="Fundraiser" desc="Donor reports & grants" />
+                <MenuLink href="/audience" title="Audience Analytics Manager" desc="Analytics & consultations" />
+                <MenuLink href="/operations" title="Operations Manager" desc="Calendar, freelancers, finance" />
+                <MenuLink href="/learning" title="AI Legal, Ethics & Regulation Tracker" desc="AI law, ethics, governance feed" />
+              </div>
             </div>
           )}
         </div>
@@ -146,7 +151,7 @@ export default function GlobalNav({
 
 function MenuLink({ href, title, desc }: { href: string; title: string; desc: string }) {
   return (
-    <Link href={href} style={{ 
+    <Link href={href} style={{
       padding: '8px 12px', display: 'block', borderRadius: 6, textDecoration: 'none', color: 'inherit'
     }}
     onMouseEnter={e => e.currentTarget.style.background = '#f5f7fa'}
@@ -155,5 +160,16 @@ function MenuLink({ href, title, desc }: { href: string; title: string; desc: st
       <div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{title}</div>
       <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>{desc}</div>
     </Link>
+  );
+}
+
+function MenuSectionHeader({ label }: { label: string }) {
+  return (
+    <div style={{
+      fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase',
+      color: '#999', padding: '4px 12px 6px',
+    }}>
+      {label}
+    </div>
   );
 }
