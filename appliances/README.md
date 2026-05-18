@@ -29,7 +29,7 @@ pilot newsroom installs hardware.
 ## Install (one script)
 
 ```bash
-git clone https://github.com/your-org/grounded.git
+git clone https://github.com/pauldevelopai/groundedai.git grounded
 cd grounded/appliances
 bash install.sh
 ```
