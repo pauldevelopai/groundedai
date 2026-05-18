@@ -28,6 +28,8 @@ const EDITABLE_KEYS = new Set([
   'ai_crawler_policy',
   'cohort_signals_enabled',     // V2 Step 2 — Mentorship cohort-tab opt-in
   'sensitivity_rules',          // V2 Step 5 — per-newsroom sensitivity overrides
+  'jurisdiction',               // Security Audit Slice B — ISO-2 jurisdiction code
+  'jurisdiction_overrides',     // Security Audit Slice B — per-newsroom pack overrides
 ]);
 
 export async function GET(_req: Request, ctx: { params: Promise<{ key: string }> }) {

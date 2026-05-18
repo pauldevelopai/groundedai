@@ -2,6 +2,7 @@
 
 import { useEffect, useState, FormEvent } from 'react';
 import GlobalNav from '@/app/components/GlobalNav';
+import JurisdictionPanel from './JurisdictionPanel';
 
 type Tool = {
   id: string;
@@ -115,11 +116,14 @@ export default function SecurityInventory({ role }: { role: 'builder' | 'admin' 
           )}
         </section>
 
+        <JurisdictionPanel canEdit={true} />
+
         <section style={{ ...panel, background: '#fafbfd', color: '#666' }}>
           <h3 style={{ fontSize: 14, margin: '0 0 6px' }}>Coming in the next slice</h3>
           <p style={{ fontSize: 12, margin: 0, lineHeight: 1.5 }}>
-            Jurisdiction scoring, the audit pipeline, the prioritised fix list, and the
-            &ldquo;what&rsquo;s been sent outside&rdquo; rollup over the last 90 days. See{' '}
+            The audit pipeline itself: a &ldquo;Run audit&rdquo; button that scores the inventory above against the
+            jurisdiction rules below, reads what&rsquo;s been sent outside over the last 90 days, and produces
+            a saved + exportable report with a prioritised fix list. See{' '}
             <code style={codeStyle}>docs/SECURITY_AUDIT_PLAN.md</code> for the full plan.
           </p>
         </section>
