@@ -34,7 +34,7 @@ Builds the finished product across formats: radio scripts, podcast outlines, vid
 
 ## 8. Digital News Gatherer
 
-Gathers tips, submissions, and contributor pieces from WhatsApp, web forms, and tip lines into a single editor triage queue, where the editor decides what moves on to Verifier for fact-checking and what moves on to Operations for contributor handling.
+Gathers tips, submissions, and contributor pieces from WhatsApp, web forms, and tip lines into a single editor triage queue, where the editor decides what moves on to Verifier for fact-checking, Researcher for added context and public-records depth, and/or Operations for contributor handling.
 
 ## 9. Fundraiser
 

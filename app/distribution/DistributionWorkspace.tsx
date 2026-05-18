@@ -16,6 +16,8 @@ type Submission = {
   agent_triage: Record<string, unknown>;
   routed_to_contributor_id: string | null;
   routed_to_calendar_id: string | null;
+  routed_to_verifier_run_id: string | null;
+  routed_to_research_dossier_id: string | null;
   notes: string | null;
   created_at: string;
 };
@@ -314,8 +316,10 @@ function SubmissionCard({ submission: s, canEdit, onChange }: { submission: Subm
         </div>
         {canEdit && s.status === 'new' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <button disabled={busy} onClick={() => route('create_contributor')} style={miniBtn}>→ Contributor</button>
-            <button disabled={busy} onClick={() => route('create_calendar_idea')} style={miniBtn}>→ Story idea</button>
+            <button disabled={busy} onClick={() => route('refer_to_verifier')} style={miniBtn} title="Fact-check this submission via the Verifier agent">→ Verifier</button>
+            <button disabled={busy} onClick={() => route('refer_to_researcher')} style={miniBtn} title="Open a research dossier with this submission as the source document">→ Researcher</button>
+            <button disabled={busy} onClick={() => route('create_contributor')} style={miniBtn} title="Operations: vet the sender as a community contributor">→ Contributor</button>
+            <button disabled={busy} onClick={() => route('create_calendar_idea')} style={miniBtn} title="Operations: log this as an idea on the editorial calendar">→ Story idea</button>
             <button disabled={busy} onClick={() => route('archive')} style={miniBtn}>Archive</button>
             <button disabled={busy} onClick={() => route('spam')} style={{ ...miniBtn, color: '#a02020' }}>Spam</button>
           </div>

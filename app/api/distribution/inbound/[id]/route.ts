@@ -9,6 +9,17 @@
 //   route_action: 'create_calendar_idea' — creates an editorial_calendar
 //                                          row in 'idea' status referencing
 //                                          this submission via notes.
+//   route_action: 'refer_to_verifier' — fires a Verifier run against the
+//                                       submission body; links the run id.
+//   route_action: 'refer_to_researcher' — creates a research_dossiers row
+//                                         + a research_documents row whose
+//                                         raw_text is the submission body,
+//                                         and links the dossier id. The
+//                                         editor then opens /research to
+//                                         analyze. (We don't auto-run the
+//                                         Researcher agent — dossiers are
+//                                         the durable surface and the
+//                                         editor decides what to analyze.)
 //   route_action: 'archive' / 'spam' — sets status accordingly.
 // These are intentionally explicit so the agent's suggestions never
 // auto-apply silently.
@@ -20,7 +31,7 @@ import { pool } from '@/lib/db';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = ['new', 'in_triage', 'routed', 'archived', 'spam', 'duplicate'];
 const CLASSIFICATIONS = ['news_tip', 'contributor_signup', 'correction', 'feedback', 'spam', 'unrelated'];
-const ROUTE_ACTIONS = ['create_contributor', 'create_calendar_idea', 'refer_to_verifier', 'archive', 'spam'];
+const ROUTE_ACTIONS = ['create_contributor', 'create_calendar_idea', 'refer_to_verifier', 'refer_to_researcher', 'archive', 'spam'];
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const session = await getCurrentSession();
@@ -168,6 +179,40 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
           [id, `\n[Verifier referral error]: ${message}`]
         );
       }
+    } else if (body.route_action === 'refer_to_researcher') {
+      const title = (submission.subject || submission.body.slice(0, 80) || 'Inbound submission').slice(0, 200);
+      const dosIns = await pool.query(
+        `INSERT INTO research_dossiers (newsroom_id, created_by, name, topic, description)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id`,
+        [
+          session.newsroomId, session.userId,
+          `Triage — ${title}`,
+          submission.subject || null,
+          `Sourced from inbound submission ${id} (${submission.source}, ${submission.sender_name || submission.sender_contact || 'anonymous'}). Editor referred to Researcher for context and public-records depth.`,
+        ]
+      );
+      const dossierId = dosIns.rows[0].id;
+      const rawText = submission.body && submission.body.trim().length > 0
+        ? submission.body
+        : `(submission body was empty)\n\nSubject: ${submission.subject || '(none)'}\nFrom: ${submission.sender_name || submission.sender_contact || 'anonymous'}\nSource: ${submission.source}`;
+      await pool.query(
+        `INSERT INTO research_documents
+           (dossier_id, newsroom_id, uploaded_by, filename, mime_type, size_bytes, raw_text, status)
+         VALUES ($1, $2, $3, $4, 'text/plain', $5, $6, 'parsed')`,
+        [
+          dossierId, session.newsroomId, session.userId,
+          `inbound-${id.slice(0, 8)}.txt`,
+          Buffer.byteLength(rawText, 'utf8'), rawText,
+        ]
+      );
+      await pool.query(
+        `UPDATE inbound_submissions
+            SET routed_to_research_dossier_id = $2, status = 'routed',
+                routed_at = NOW(), routed_by = $3, updated_at = NOW()
+          WHERE id = $1`,
+        [id, dossierId, session.userId]
+      );
     } else if (body.route_action === 'archive') {
       await pool.query(`UPDATE inbound_submissions SET status = 'archived', updated_at = NOW() WHERE id = $1`, [id]);
     } else if (body.route_action === 'spam') {
