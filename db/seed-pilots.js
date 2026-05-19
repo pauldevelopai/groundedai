@@ -154,6 +154,77 @@ async function ensureAdmin(newsroomId, email) {
   return { id: rows[0].id, password };
 }
 
+async function ensureJurisdiction(newsroomId, jurisdiction) {
+  // Sets newsroom_profile.metadata.jurisdiction if not already set.
+  // The metadata column is JSONB; we use jsonb_set with create_missing=true.
+  await pool.query(
+    `UPDATE newsroom_profiles
+        SET metadata = jsonb_set(
+              COALESCE(metadata, '{}'::jsonb),
+              '{jurisdiction}',
+              to_jsonb($2::text),
+              true
+            ),
+            updated_at = NOW()
+      WHERE newsroom_id = $1
+        AND (metadata->>'jurisdiction' IS NULL OR metadata->>'jurisdiction' = '')`,
+    [newsroomId, jurisdiction]
+  );
+}
+
+// Sample external-tool inventory rows so a fresh pilot newsroom has
+// something for the Digital Security Audit to score on first run.
+// Idempotent: skipped if any rows already exist for the newsroom.
+const SAMPLE_SECURITY_TOOLS = [
+  {
+    vendor: 'OpenAI',
+    tool_name: 'ChatGPT',
+    data_residency: 'US',
+    declared_use: 'Drafting social copy and headline variants',
+    data_kinds_exposed: ['unpublished_drafts'],
+    notes: 'Free tier currently — Enterprise upgrade under review.',
+  },
+  {
+    vendor: 'Google',
+    tool_name: 'Google Workspace (Docs / Gmail / Drive)',
+    data_residency: 'US',
+    declared_use: 'Editorial docs, story drafts, internal email',
+    data_kinds_exposed: ['unpublished_drafts', 'source_contacts'],
+    notes: 'Default newsroom workspace.',
+  },
+  {
+    vendor: 'Meta',
+    tool_name: 'WhatsApp Business',
+    data_residency: 'US',
+    declared_use: 'Tip line + audience comms',
+    data_kinds_exposed: ['source_contacts', 'audience_pii'],
+    notes: 'Source contacts arrive here via the tip-line number.',
+  },
+];
+
+async function seedSecurityInventory(newsroomId, addedByUserId) {
+  const existing = await pool.query(
+    `SELECT 1 FROM security_external_tools WHERE newsroom_id = $1 LIMIT 1`,
+    [newsroomId]
+  );
+  if (existing.rows.length > 0) return { seeded: false };
+
+  for (const t of SAMPLE_SECURITY_TOOLS) {
+    await pool.query(
+      `INSERT INTO security_external_tools
+         (newsroom_id, added_by, vendor, tool_name, data_residency,
+          declared_use, data_kinds_exposed, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        newsroomId, addedByUserId,
+        t.vendor, t.tool_name, t.data_residency, t.declared_use,
+        t.data_kinds_exposed, t.notes,
+      ]
+    );
+  }
+  return { seeded: true, count: SAMPLE_SECURITY_TOOLS.length };
+}
+
 async function upsertProfile(newsroomId, userId, profile) {
   // Use the same shape as lib/newsroom-profile.js#upsertProfile so the seed
   // matches what the workspace would write. Fields not present here stay at
@@ -214,6 +285,13 @@ async function main() {
 
     await upsertProfile(nr.id, admin.id, p.profile);
     console.log(`  ↪ profile draft applied (existing editor-set fields preserved)`);
+
+    await ensureJurisdiction(nr.id, p.country);
+    console.log(`  ↪ jurisdiction set to ${p.country} (for Security Audit scoring)`);
+
+    const sec = await seedSecurityInventory(nr.id, admin.id);
+    if (sec.seeded) console.log(`  ↪ seeded ${sec.count} sample external tools (ChatGPT / Workspace / WhatsApp Business)`);
+    else console.log(`  ↪ security inventory already populated (skipped)`);
   }
 
   if (credentials.length > 0) {
