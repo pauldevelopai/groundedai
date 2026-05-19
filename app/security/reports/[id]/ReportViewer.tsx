@@ -101,6 +101,10 @@ export default function ReportViewer({ id }: { id: string }) {
           <BandPill band={s.overall_risk_band} />
           <span style={meta}>jurisdiction: <strong>{s.jurisdiction}</strong></span>
           <span style={meta}>routing window: <strong>{s.routing_window_days} days</strong></span>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+            <a href={`/api/security/reports/${id}/export?format=markdown`} style={exportBtn} title="Download Markdown export — paste into a doc / email / governance log">↓ Markdown</a>
+            <a href={`/api/security/reports/${id}/export?format=json`} style={exportBtn} title="Download JSON export — machine-readable">↓ JSON</a>
+          </div>
         </div>
         <div style={{ ...meta, marginTop: 6 }}>
           generated {new Date(s.generated_at).toLocaleString()}
@@ -314,3 +318,4 @@ const codeStyle: React.CSSProperties = { fontSize: 11, background: '#f3f4f6', pa
 const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse' };
 const trStyle: React.CSSProperties = {};
 const evPill: React.CSSProperties = { fontSize: 9, padding: '1px 6px', marginLeft: 6, borderRadius: 8, background: '#eef3fb', color: '#234', textTransform: 'uppercase', letterSpacing: 0.3 };
+const exportBtn: React.CSSProperties = { padding: '4px 10px', border: '1px solid #ccc', borderRadius: 4, fontSize: 12, color: '#333', textDecoration: 'none', background: '#fafafa' };

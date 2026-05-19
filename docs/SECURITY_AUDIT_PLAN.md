@@ -1,6 +1,6 @@
 # Digital Security Audit — implementation plan
 
-**Status:** drafted 2026-05-18, design decisions locked. Awaiting Paul's go-ahead on Slice A.
+**Status:** ALL FOUR SLICES SHIPPED 2026-05-18 / 2026-05-19. Tool #5 is live in code, in the registry, in the GlobalNav, and in the Builder palette.
 
 **Decisions locked (2026-05-18):**
 - `data_kinds_exposed` is a fixed enum with an "Other, please specify" escape (cleanest editor UX, comparable across cohort).
@@ -207,3 +207,20 @@ Confirm-before-next gates at end of each slice. Each slice is a single commit Pa
 - README's Tools table marks Tool #5 as shipped.
 
 Future work outside this slice (still on the reviewer's list): Step 3 (SUPERSEDED header on BRIEFING.md), Step 4 (confirm prompt-to-workflow auto-construction), Step 5 (scope the standalone Tracker integration + real Ollama appliance execution). None of those depend on Security Audit; any can be slotted in next.
+
+---
+
+## Shipped — actual commits
+
+| Slice | Commit | What landed |
+|---|---|---|
+| A | `2cc0368` | Migration 038 (security_external_tools + security_audit_reports), CRUD API, /security workspace skeleton |
+| B | `36a47ae` then `616c8b5` | Jurisdiction packs YAML, deterministic scoring lib, 25 jurisdiction tests, JurisdictionPanel UI. Second commit reframed around research-grade citations after the "we need to be clear WHY" direction — ZA deep-researched with POPIA s.72 / RISAA / Garante DeepSeek primary sources; TZ/UG/GH/NG added as light packs; every entry carries sources[] + evidence_kind + last_verified. |
+| C | `05c72af` | Audit pipeline (lib/agents/security_audit.js with runAudit + one-Haiku-call fix list), POST/GET reports API, /security/reports/[id] ReportViewer with collapsible per-tool reason drill-down + Slice B source surfacing, Run-audit button + recent-reports table on /security. |
+| D | (this commit) | /api/security/reports/[id]/export with format=json|markdown (Markdown export is the share-friendly form, with full source citations rendered); Export buttons on report viewer header; docs/AGENTS.md + README updated to mark Tool #5 as shipped + drop the "planned" wording. |
+
+180 tests pass throughout. Typecheck clean throughout. Honoured the locked rules:
+- Haiku 4.5 only — one chat() call in runAudit, no model param.
+- OSS-first — js-yaml is the only new dep, already in package.json.
+- Per-newsroom isolation — every table FK'd to newsrooms with ON DELETE CASCADE.
+- Tracker stub + appliance STUB untouched — no scope creep into other slices.

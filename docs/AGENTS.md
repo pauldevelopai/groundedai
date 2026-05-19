@@ -1,8 +1,8 @@
-# Grounded — the 8 agents + 4 tools (canonical)
+# Grounded — the 8 agents + 5 tools (canonical)
 
 This file is the single source of truth for the agents + tools Grounded ships. Verbatim from Paul's spec on 2026-05-18 (the concept-note reconciliation that introduced the agent/tool split). Any change to a scope or wording lands here first; the agent registry descriptions in `lib/agents/*.js` and any HANDOFF references must match this file.
 
-The platform ships **eight agents** that do journalism work and **four tools** (with a fifth — Digital Security Audit — planned) that support newsroom operations. Each does one thing well; the power is in how each newsroom can coordinate and prompt them to suit their specific needs.
+The platform ships **eight agents** that do journalism work and **five tools** that support newsroom operations. Each does one thing well; the power is in how each newsroom can coordinate and prompt them to suit their specific needs.
 
 In code, all twelve register through the same `lib/agents/registry.js` and carry a `category: 'agent' | 'tool'` field. The Builder palette and the GlobalNav dropdown group by category; saved workflows can mix freely.
 
@@ -46,9 +46,9 @@ Gathers tips, submissions, and contributor pieces from WhatsApp, web forms, and 
 
 ---
 
-## Tools (4, with a 5th planned)
+## Tools (5)
 
-The tools support newsroom operations — fundraising, audience analytics, organisational running, governance tracking, security audit (planned). They sit alongside the journalism agents in the same Builder canvas and can be wired into the same workflows.
+The tools support newsroom operations — fundraising, audience analytics, organisational running, governance tracking, security audit. They sit alongside the journalism agents in the same Builder canvas and can be wired into the same workflows.
 
 ### 1. Fundraiser
 
@@ -66,9 +66,9 @@ Runs the internal stuff: editorial calendar, deadlines, freelancer coordination,
 
 Finds, collects, and stores legal, ethical, and regulatory shifts in the AI and media landscape on a daily basis. Newsrooms can search and cross-reference cases that may be relevant to them. The tool helps each newsroom build its own AI governance framework based on the AI implementations specific to that newsroom, rather than handing down a generic policy. Each newsroom ends up with a living framework it owns and can defend, updated as the regulatory landscape changes. Organisations without dedicated legal or technology teams shouldn't be at a systematic disadvantage.
 
-### 5. Digital Security Audit *(planned — not yet built)*
+### 5. Digital Security Audit
 
-A built-in audit a newsroom runs on its own setup that (a) maps where data is leaking — which external tools are in use, what each collects, where source material / contacts / unpublished work is exposed; (b) flags which external AI tools to avoid, scored against the newsroom's jurisdiction pack; (c) returns a prioritised list of fixes; (d) shows which tasks are being sent outside and what each exposes. Reuses the existing sensitivity classifier + routing layer (`lib/sensitivity/classify.js`, `lib/agents/route.js`) and the governance jurisdiction packs — not a new source of truth. Produces a saved, exportable report.
+A built-in audit a newsroom runs on its own setup. Slug `security_audit`. It (a) inventories the external AI / data tools the newsroom uses outside Grounded — what each collects, what data kinds it sees (unpublished drafts, source contacts, audience PII, …); (b) scores each tool against the newsroom's loaded jurisdiction pack ([`config/jurisdiction-packs.yaml`](../config/jurisdiction-packs.yaml) — South Africa is deep-researched with primary-source citations; ZW / ZM / KE / EU / US / Tanzania / Uganda / Ghana / Nigeria are light packs pending deep research); (c) reads the past 90 days of `workflow_executions` to show what's actually been sent outside the newsroom's perimeter (cloud vs appliance, by sensitivity label); (d) drafts a prioritised fix list via one Haiku call grounded in (a)-(c). Produces a saved report at `/security/reports/<id>` with JSON + Markdown export endpoints. Runs on-demand from `/security` and as a draggable Builder block; outputs `reportId` + `overallRiskBand` so workflows can branch (e.g. refuse to publish if `'critical'`). Reuses the V2 sensitivity classifier + routing layer rather than duplicating logic.
 
 ---
 

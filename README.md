@@ -1,6 +1,6 @@
 # Grounded
 
-**Shared AI infrastructure for African newsrooms.** Eight composable AI **agents** that do journalism work + four **tools** that support newsroom operations (with a fifth — Digital Security Audit — planned), a drag-and-drop workflow builder, an observability layer, and an optional per-newsroom appliance for sensitive work. Built by [Develop AI](https://developai.co.za) and designed to scale across the African media sector. Apache-2.0.
+**Shared AI infrastructure for African newsrooms.** Eight composable AI **agents** that do journalism work + five **tools** that support newsroom operations, a drag-and-drop workflow builder, an observability layer, and an optional per-newsroom appliance for sensitive work. Built by [Develop AI](https://developai.co.za) and designed to scale across the African media sector. Apache-2.0.
 
 > One person at the newsroom (the "AI champion") composes workflows by dragging agents onto a canvas; the rest of the team uses what the champion ships through a simple web UI. Sensitive material runs locally on the newsroom's own hardware; everything else uses Anthropic Claude in the cloud.
 
@@ -8,9 +8,9 @@
 
 ## Status (2026-05-18)
 
-- **V1 shipped:** eight agents + four tools (Tracker as a shell, real implementation at `/INTEGRATE/tracker`), drag-and-drop Builder, User mode, Postgres-backed workflow registry, encrypted social credentials, OSS-first dependency stack, Anthropic + Ollama fallback path.
+- **V1 shipped:** eight agents + five tools (Tracker as a shell, real implementation at `/INTEGRATE/tracker`), drag-and-drop Builder, User mode, Postgres-backed workflow registry, encrypted social credentials, OSS-first dependency stack, Anthropic + Ollama fallback path.
 - **V2 shipped:** Observatory (per-workflow + per-edit telemetry), Mentorship dashboard, 7-tab Legal/Ethics Tracker UX, agentic agents (Verifier + Researcher + Operations with bounded tool-use loops), sensitivity classifier + routing, newsroom-appliance protocol + one-script installer.
-- **Planned:** Digital Security Audit (5th tool — concept-note Tool #5; not yet built).
+- **Digital Security Audit (concept-note Tool #5) shipped 2026-05-19:** external-tool inventory + research-grade jurisdiction packs (SA deep, TZ/UG/GH/NG/EU/US/ZW/ZM/KE light) + audit pipeline with one-Haiku-call fix list + report viewer + JSON/Markdown export + Builder block. See [`docs/SECURITY_AUDIT_PLAN.md`](docs/SECURITY_AUDIT_PLAN.md).
 - **Pilot scope:** 5 ZimZam newsrooms initially, scaling toward 120+ across the continent. Build window Jul–Dec 2026; grantee charging begins Jan 2027.
 - **Open source:** Apache-2.0. Designed to outlive Develop AI — any successor team can fork, inspect, and run independently.
 
@@ -43,7 +43,7 @@ Canonical definitions in [`docs/AGENTS.md`](docs/AGENTS.md). All twelve register
 | 7 | Digital News Gatherer | `distributor` | **Inbound only.** Triages tips / submissions / contributor pieces from WhatsApp / web forms / tip lines into a single editor queue. Three-way routing: editor sends each item to Verifier (fact-check), Researcher (deepen with public records), and/or Operations (contributor handling). |
 | 8 | Social media listener | `social_listener` | Tracks cross-platform posts for damaging narratives, attributes origin (especially state-aligned actors). OSS lang-detection + NER via Transformers.js. Manual / webhook / CSV ingestion. |
 
-### Tools (4 shipped, 5th planned) — newsroom operations
+### Tools (5) — newsroom operations
 
 | # | Display name | Slug | What it does |
 |---|---|---|---|
@@ -51,7 +51,7 @@ Canonical definitions in [`docs/AGENTS.md`](docs/AGENTS.md). All twelve register
 | 2 | Audience Analytics Manager | `audience` | Analytics ingest (Plausible / Umami / GA / WordPress / CSV) + AI query layer over them. Headline test + angle sense-check against historical performance. |
 | 3 | Operations Manager | `operations` | Editorial calendar, deadlines, freelancer coordination, sales, logistics, finance, performance metrics, community contributor management. Whole-org, not just the editorial floor. Agentic ad-hoc question kind (V2) reads live tables via `db_read`. |
 | 4 | AI Legal, Ethics & Regulation Tracker | `legal_tracker` | Finds + collects + stores legal/regulatory/ethical shifts daily; helps each newsroom build a living governance framework. **Current repo state: thin shell** over `learning_updates`. The full Tracker is a standalone codebase at `/INTEGRATE/tracker` (not in this repo) — to be integrated later. |
-| 5 | Digital Security Audit *(planned)* | `security_audit` | Built-in audit a newsroom runs on its own setup: maps where data is leaking, flags external AI tools to avoid against the newsroom's jurisdiction pack, returns a prioritised fix list. Reuses the V2 sensitivity classifier + routing + the governance jurisdiction packs. **Not yet built.** |
+| 5 | Digital Security Audit | `security_audit` | Built-in audit a newsroom runs on its own setup: external-tool inventory + risk scoring against a research-grade jurisdiction pack (SA deep, others light) + 90-day routing-history rollup + Haiku-drafted prioritised fix list. Saved + JSON/Markdown exportable reports. On-demand from `/security` and as a draggable Builder block. |
 
 ---
 
