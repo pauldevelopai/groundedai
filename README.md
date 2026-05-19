@@ -20,7 +20,7 @@ The product specification of record is [`docs/AGENTS.md`](docs/AGENTS.md). The V
 
 ## The two modes
 
-**Builder mode** — the AI champion (editor, head of audience) composes workflows on a desktop. Drag agents onto a canvas, wire them together, attach prompts and knowledge sources, save and assign to the team. Not a form: a visual canvas (xyflow / React Flow).
+**Builder mode** — the AI champion (editor, head of audience) composes workflows on a desktop. Drag agents onto a canvas, wire them together, attach prompts and knowledge sources, save and assign to the team. Not a form: a visual canvas (xyflow / React Flow). The Builder can also **describe a workflow in plain English and have Grounded compose the graph automatically** — the "Describe & build" button calls [`lib/workflows/generate.js`](lib/workflows/generate.js) which uses one Haiku call to draft a valid agent graph from the description, validates it against the live registry, and drops it onto the canvas for the Builder to refine.
 
 **User mode** — the rest of the team picks from a list of named workflows organised by problem category ("Personalisation", "Fact-checking", "Translation", …). They don't see agents or prompts; they see a chat-style surface that follows their commands. Web only — journalists do not access Grounded via WhatsApp (WhatsApp is reserved as a *Digital News Gatherer* channel for audience inbound/outbound, never for the newsroom team).
 

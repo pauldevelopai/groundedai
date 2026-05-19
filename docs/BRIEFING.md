@@ -4,6 +4,22 @@
 
 ---
 
+> ## ⚠ SUPERSEDED ON PORTFOLIO FRAMING + AGENT COUNT + NAMING (2026-05-19)
+>
+> The build-methodology content in this briefing — "build incrementally with confirmation," lift before reinventing, deliverable is working software shipped in confirmed steps — is still valid and worth reading.
+>
+> But three things have moved on since 2026-05-04 and should not be built to from this document:
+>
+> 1. **Portfolio framing.** This file says "GROUNDED has five expressions: Grounded, Tracker (live), Awareness, MediaMap, training cohorts." That structure has been rationalised. **GROUNDED is the platform itself** — the thing this repo builds. Tracker is the 12th agent (4th tool) inside GROUNDED, with the standalone implementation at `/INTEGRATE/tracker` waiting to be integrated. Awareness, MediaMap, and training cohorts are not part of this codebase.
+>
+> 2. **Agent count.** This file says "Three MVP agents: Verifier, Archivist, Copywriter." GROUNDED now ships **8 agents + 5 tools** (Security Audit shipped 2026-05-19). The canonical list is [`docs/AGENTS.md`](AGENTS.md) — treat that as the source of truth, not this briefing.
+>
+> 3. **Naming.** This file uses "Anchor" as the project name. The platform was renamed Anchor → Grounded in May 2026 (Phase 1 display rename 2026-05-11, Phase 2 deeper rename 2026-05-15, GitHub repo renamed `anchor` → `groundedai` and made public 2026-05-18). The display layer is fully Grounded. Lower-level identifiers (agent slugs, DB table prefixes, the `anchor_token` cookie, the `admin@anchor.local` dev login) were intentionally frozen to protect saved newsroom workflows and live sessions — see the README's "Locked rules" section.
+>
+> **Canonical references as of 2026-05-19:** [`README.md`](../README.md), [`docs/AGENTS.md`](AGENTS.md), [`docs/V2_PLAN.md`](V2_PLAN.md), [`docs/SECURITY_AUDIT_PLAN.md`](SECURITY_AUDIT_PLAN.md). Read those first; treat this file as build-methodology archaeology.
+
+---
+
 ## WHAT THIS BRIEFING IS FOR
 
 You are building Grounded in a fresh directory. New project. Fresh git repo (initialise it yourself; do not copy a .git folder from anywhere). Build incrementally with confirmation at each stage, the same way Paul works on Surepath.
