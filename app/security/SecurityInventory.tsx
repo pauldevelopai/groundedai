@@ -118,13 +118,14 @@ export default function SecurityInventory({ role }: { role: 'builder' | 'admin' 
 
         <JurisdictionPanel canEdit={true} />
 
+        <RunAuditPanel canEdit={true} />
+
         <section style={{ ...panel, background: '#fafbfd', color: '#666' }}>
           <h3 style={{ fontSize: 14, margin: '0 0 6px' }}>Coming in the next slice</h3>
           <p style={{ fontSize: 12, margin: 0, lineHeight: 1.5 }}>
-            The audit pipeline itself: a &ldquo;Run audit&rdquo; button that scores the inventory above against the
-            jurisdiction rules below, reads what&rsquo;s been sent outside over the last 90 days, and produces
-            a saved + exportable report with a prioritised fix list. See{' '}
-            <code style={codeStyle}>docs/SECURITY_AUDIT_PLAN.md</code> for the full plan.
+            JSON / Markdown export of audit reports, plus Builder-workflow node integration so a workflow
+            can call the audit and branch on the resulting risk band. See{' '}
+            <code style={codeStyle}>docs/SECURITY_AUDIT_PLAN.md</code> Slice D for the full plan.
           </p>
         </section>
       </div>
@@ -263,6 +264,107 @@ function AddToolForm({ onCancel, onCreated }: { onCancel: () => void; onCreated:
         <button type="button" onClick={onCancel} style={ghostBtn}>Cancel</button>
       </div>
     </form>
+  );
+}
+
+type Report = {
+  id: string;
+  status: 'running' | 'completed' | 'failed';
+  overall_risk_band: 'low' | 'medium' | 'high' | 'critical' | null;
+  routing_window_days: number;
+  started_at: string;
+  finished_at: string | null;
+  cost_usd: string | null;
+  error: string | null;
+  initiated_by_email: string | null;
+};
+
+function RunAuditPanel({ canEdit }: { canEdit: boolean }) {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    setLoading(true); setError(null);
+    try {
+      const res = await fetch('/api/security/reports');
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+      setReports(j.reports);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load reports');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runAudit() {
+    setRunning(true); setError(null);
+    try {
+      const res = await fetch('/api/security/reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const j = await res.json();
+      if (!res.ok) {
+        setError(j.error || `HTTP ${res.status}`);
+        if (j.reportId) window.location.href = `/security/reports/${j.reportId}`;
+        return;
+      }
+      window.location.href = `/security/reports/${j.reportId}`;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Audit failed');
+    } finally { setRunning(false); }
+  }
+
+  return (
+    <section style={{ ...panel, marginBottom: 16 }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <h2 style={{ fontSize: 15, margin: '0 0 2px' }}>Run an audit</h2>
+          <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
+            Scores the inventory above against your jurisdiction pack + reads what&rsquo;s been sent outside in the last 90 days + drafts a prioritised fix list. Typical run takes 2–6 seconds.
+          </p>
+        </div>
+        {canEdit && (
+          <button disabled={running} onClick={runAudit} style={{ ...primaryBtn, opacity: running ? 0.6 : 1 }}>
+            {running ? 'Running audit…' : 'Run audit now'}
+          </button>
+        )}
+      </header>
+
+      {error && <div style={errorBox}>{error}</div>}
+
+      <div>
+        <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>Recent reports ({reports.length})</div>
+        {loading ? (
+          <p style={{ fontSize: 13, color: '#888' }}>Loading…</p>
+        ) : reports.length === 0 ? (
+          <p style={{ fontSize: 13, color: '#888' }}>No audits run yet. Click <strong>Run audit now</strong> above.</p>
+        ) : (
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <Th>When</Th><Th>Status</Th><Th>Risk</Th><Th>Window</Th><Th>By</Th><Th>Cost</Th><Th>{''}</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {reports.map(r => (
+                <tr key={r.id} style={trStyle}>
+                  <Td>{new Date(r.started_at).toLocaleString()}</Td>
+                  <Td>{r.status}</Td>
+                  <Td>{r.overall_risk_band || '—'}</Td>
+                  <Td>{r.routing_window_days}d</Td>
+                  <Td style={{ color: '#666' }}>{r.initiated_by_email || '—'}</Td>
+                  <Td>{r.cost_usd ? `$${Number(r.cost_usd).toFixed(4)}` : '—'}</Td>
+                  <Td><a href={`/security/reports/${r.id}`} style={{ color: '#0a5da0', fontSize: 12 }}>Open →</a></Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </section>
   );
 }
 
