@@ -7,6 +7,7 @@
 - Jurisdiction packs ship as YAML in the repo + per-newsroom overrides stored at `newsroom_profile.metadata.jurisdiction_overrides`. Matches how sensitivity rules already work.
 - Routing-history default window: **90 days**. Quarterly view; right for governance reviews.
 - Security Audit is available both **on-demand** (button on `/security`) AND as a **draggable Builder block**. Workflow-mode returns the new `reportId`.
+- **Research-grade citations are mandatory (added 2026-05-18 mid-Slice-B).** Every non-trivial claim in a jurisdiction pack carries a `sources` list with `evidence_kind` tags (`primary_legislation` / `regulator_guidance` / `regulator_action` / `case_law` / `reputable_press` / `industry_analysis` / `vendor_documentation`). The ZA pack is `audit_depth: deep` with primary-source backing for POPIA s.72, FISA 702 / RISAA, and recent DeepSeek / TikTok regulator actions. Other packs are `audit_depth: light` and cite the jurisdiction's primary data-protection act — they get deep-research treatment as newsrooms from those countries join the pilot. Tanzania, Uganda, Ghana, and Nigeria added as light packs in this pass.
 
 **Decision still open:** report retention. The plan defaults to "keep all reports forever" (storage is trivial; year-over-year comparison value is real). Flip to expire-after-12-months if Paul prefers.
 **Concept-note origin:** Tool #5 in the 18 May 2026 GROUNDED concept note + budget. Was the missing piece flagged by the reviewer's reconciliation.

@@ -2,15 +2,27 @@
 
 import { useEffect, useState } from 'react';
 
+type Source = {
+  title: string;
+  url?: string | null;
+  evidence_kind?: string | null;
+  cite?: string | null;
+};
+
 type Entry = {
   vendor?: string | null;
   tool_name?: string | null;
   severity?: 'warn' | 'avoid' | 'prohibit';
   reason?: string;
+  sources?: Source[];
+  last_verified?: string | null;
 };
 
 type Pack = {
+  audit_depth?: 'deep' | 'light';
+  last_verified?: string | null;
   data_law_summary: string;
+  data_law_sources?: Source[];
   safe_residencies: string[];
   risky_residencies: string[];
   tool_avoid_list: Entry[];
@@ -128,8 +140,17 @@ export default function JurisdictionPanel({ canEdit }: { canEdit: boolean }) {
 
       {data.pack.data_law_summary && (
         <div style={lawBlock}>
-          <strong style={{ fontSize: 11, textTransform: 'uppercase', color: '#555', letterSpacing: 0.5 }}>Data-law summary</strong>
-          <p style={{ fontSize: 13, color: '#333', margin: '4px 0 0', lineHeight: 1.5 }}>{data.pack.data_law_summary}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <strong style={{ fontSize: 11, textTransform: 'uppercase', color: '#555', letterSpacing: 0.5 }}>Data-law summary</strong>
+            <DepthBadge depth={data.pack.audit_depth} />
+            {data.pack.last_verified && (
+              <span style={{ fontSize: 10, color: '#888' }}>verified {data.pack.last_verified}</span>
+            )}
+          </div>
+          <p style={{ fontSize: 13, color: '#333', margin: '4px 0 0', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{data.pack.data_law_summary}</p>
+          {data.pack.data_law_sources && data.pack.data_law_sources.length > 0 && (
+            <Sources sources={data.pack.data_law_sources} />
+          )}
         </div>
       )}
 
@@ -195,17 +216,81 @@ function ListBlock({ title, items, tone }: { title: string; items: Entry[]; tone
       {items.length === 0 ? (
         <p style={{ fontSize: 12, color: '#bbb', margin: 4 }}>—</p>
       ) : (
-        <div style={{ display: 'grid', gap: 4 }}>
+        <div style={{ display: 'grid', gap: 6 }}>
           {items.map((e, i) => (
             <div key={i} style={entryRow}>
-              <strong style={{ fontSize: 12 }}>{e.vendor || ''}{e.vendor && e.tool_name ? ' · ' : ''}{e.tool_name || ''}</strong>
-              {e.severity && <span style={tone === 'allow' ? severityPillAllow(e.severity) : severityPill(e.severity)}>{e.severity}</span>}
-              {e.reason && <span style={{ fontSize: 12, color: '#666' }}>{e.reason}</span>}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                <strong style={{ fontSize: 12 }}>{e.vendor || ''}{e.vendor && e.tool_name ? ' · ' : ''}{e.tool_name || ''}</strong>
+                {e.severity && <span style={tone === 'allow' ? severityPillAllow(e.severity) : severityPill(e.severity)}>{e.severity}</span>}
+                {e.last_verified && <span style={{ fontSize: 10, color: '#888' }}>verified {e.last_verified}</span>}
+              </div>
+              {e.reason && (
+                <p style={{ fontSize: 12, color: '#444', margin: '4px 0 0', whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{e.reason}</p>
+              )}
+              {e.sources && e.sources.length > 0 && <Sources sources={e.sources} />}
             </div>
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+function Sources({ sources }: { sources: Source[] }) {
+  if (!sources || sources.length === 0) return null;
+  return (
+    <details style={{ marginTop: 6 }}>
+      <summary style={{ fontSize: 11, color: '#555', cursor: 'pointer' }}>
+        Sources ({sources.length})
+      </summary>
+      <ul style={{ margin: '4px 0 0 0', padding: '0 0 0 16px', fontSize: 11, color: '#666', lineHeight: 1.5 }}>
+        {sources.map((s, i) => (
+          <li key={i}>
+            {s.url ? (
+              <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: '#0a5da0' }}>{s.title}</a>
+            ) : (
+              <span>{s.title}</span>
+            )}
+            {s.evidence_kind && <EvidencePill kind={s.evidence_kind} />}
+            {s.cite && <span style={{ color: '#888' }}> — {s.cite}</span>}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function EvidencePill({ kind }: { kind: string }) {
+  const labels: Record<string, string> = {
+    primary_legislation: 'primary legislation',
+    regulator_guidance: 'regulator guidance',
+    regulator_action: 'regulator action',
+    case_law: 'case law',
+    reputable_press: 'press',
+    industry_analysis: 'industry analysis',
+    vendor_documentation: 'vendor docs',
+  };
+  return (
+    <span style={{
+      fontSize: 9, padding: '1px 6px', marginLeft: 6, borderRadius: 8,
+      background: '#eef3fb', color: '#234', textTransform: 'uppercase', letterSpacing: 0.3,
+    }}>
+      {labels[kind] || kind}
+    </span>
+  );
+}
+
+function DepthBadge({ depth }: { depth?: 'deep' | 'light' }) {
+  if (!depth) return null;
+  const isDeep = depth === 'deep';
+  return (
+    <span style={{
+      fontSize: 9, padding: '2px 7px', borderRadius: 8, textTransform: 'uppercase', fontWeight: 600,
+      background: isDeep ? '#e7f6e7' : '#fff4d6',
+      color: isDeep ? '#1a5d1a' : '#8a5400',
+    }}>
+      {isDeep ? 'deep research' : 'light — pending deep research'}
+    </span>
   );
 }
 

@@ -5,18 +5,32 @@
 # matching pack when scoring each external tool the newsroom has in
 # its inventory.
 #
-# Pack fields:
-#   data_law_summary    one-paragraph editorial-facing summary of the
-#                       newsroom's home jurisdiction data-protection
-#                       regime, used in the audit's narrative.
-#   safe_residencies    ISO-2 country codes considered acceptable data
-#                       destinations from this jurisdiction.
-#   risky_residencies   ISO-2 country codes whose tools should be flagged
-#                       (severity 'warn' by default — escalate via
-#                       tool_avoid_list if needed).
-#   tool_avoid_list     vendor / tool patterns to flag regardless of
-#                       residency. Each entry: { vendor? | tool_name?,
-#                       severity: 'warn' | 'avoid' | 'prohibit', reason }.
+# This file is editor-curated. Treat it as a living document — the
+# audit's quality is downstream of its quality. Every non-trivial claim
+# carries a `sources` list with the evidence backing it; the audit
+# report renders the sources alongside each finding so the editor can
+# verify the reasoning.
+#
+# Schema:
+#   audit_depth        'deep' | 'light'. Deep packs have primary-source
+#                      citations on every claim; light packs cite the
+#                      jurisdiction's primary data-protection law and
+#                      mark themselves as awaiting fuller research.
+#   last_verified      ISO date the pack was last reviewed.
+#   data_law_summary   { text, sources[] }. text appears in the audit
+#                      report; sources cite the underlying law / guidance.
+#   safe_residencies   ISO-2 country codes acceptable from this jurisdiction.
+#   risky_residencies  ISO-2 country codes flagged from this jurisdiction.
+#   tool_avoid_list    entries: { vendor?, tool_name?, severity, reason,
+#                      sources[], last_verified }
+#
+# Source entries:
+#   title              short label (renders in UI)
+#   url                stable URL when one exists
+#   evidence_kind      'primary_legislation' | 'regulator_guidance' |
+#                      'regulator_action' | 'case_law' | 'reputable_press' |
+#                      'industry_analysis' | 'vendor_documentation'
+#   cite               (optional) specific section / date / quote
 #
 # Severity → risk band mapping:
 #   safe / no flag → 'low'
@@ -26,135 +40,485 @@
 #
 # Per-newsroom overrides live at newsroom_profile.metadata.jurisdiction_overrides
 # and merge with the pack at scoring time (allow_list wins; additional
-# avoid_list entries append).
-#
-# Editors should treat this file as a living document — the audit's quality
-# is downstream of its quality.
+# avoid_list entries append; same-key avoid_list entries replace).
 
+# ──────────────────────────────────────────────────────────────────────
+# Default — conservative fallback for unconfigured / unknown jurisdictions.
+# ──────────────────────────────────────────────────────────────────────
 default:
-  data_law_summary: >
-    No specific jurisdiction set. Treat every external tool conservatively:
-    source-protection material should not leave the newsroom's perimeter, and
-    third-country residencies (especially state-aligned jurisdictions) warrant
-    caution.
+  audit_depth: light
+  last_verified: '2026-05-18'
+  data_law_summary:
+    text: >
+      No specific jurisdiction set. Treat every external tool conservatively:
+      source-protection material should not leave the newsroom's perimeter, and
+      third-country residencies (especially state-aligned jurisdictions) warrant
+      caution.
+    sources: []
   safe_residencies: [EU, GB]
   risky_residencies: [CN, RU, IR, KP]
   tool_avoid_list:
     - tool_name: TikTok
       severity: warn
-      reason: ByteDance ownership creates a state-access risk for source material.
+      reason: ByteDance ownership creates a state-access risk for source material under PRC intelligence law.
+      sources: []
+      last_verified: '2026-05-18'
     - vendor: DeepSeek
       severity: avoid
-      reason: Chinese-origin model with unclear data-handling guarantees.
+      reason: Chinese-origin model with data resident on PRC servers; multiple national bans (Italy, Australia, Taiwan, Czech Republic) and open EU investigations.
+      sources: []
+      last_verified: '2026-05-18'
 
+# ──────────────────────────────────────────────────────────────────────
+# South Africa (ZA) — deep pack, primary pilot jurisdiction.
+# ──────────────────────────────────────────────────────────────────────
 ZA:
-  data_law_summary: >
-    POPIA (Protection of Personal Information Act, 2013) governs personal
-    information processing in South Africa. Cross-border transfers require
-    either consent, contractual safeguards, or an adequate-protection finding.
-    The US's FISA 702 regime and Chinese state-access laws are both reasons
-    to treat those residencies as risky for source-protection material.
+  audit_depth: deep
+  last_verified: '2026-05-18'
+  data_law_summary:
+    text: |
+      POPIA (Protection of Personal Information Act, 2013, No. 4 of 2013) is South
+      Africa's primary data-protection regime, fully enforced from 1 July 2021. Section 72
+      specifically governs cross-border transfers: personal information may only leave
+      South Africa where the recipient is subject to comparable law / binding rules,
+      with the data subject's informed consent, where the transfer is necessary for
+      contractual performance, or for the data subject's benefit. Most cloud-hosted
+      AI tools (ChatGPT, Microsoft Copilot, Google Gemini, etc.) process data on
+      servers outside South Africa, which makes routine use of them a cross-border
+      transfer event under POPIA. Amended regulations effective April 2025 sharpened
+      breach-reporting and cross-border-transfer requirements. The Information
+      Regulator is finalising a Guidance Note on Transborder Flows of Information
+      (status: in consultation as of March 2026). South Africa's National Artificial
+      Intelligence Policy Framework, published by the Department of Communications
+      and Digital Technologies, signals a future risk-based AI supervisory model.
+    sources:
+      - title: 'POPIA (Act 4 of 2013)'
+        url: https://www.gov.za/sites/default/files/gcis_document/201409/3706726-11act4of2013popi.pdf
+        evidence_kind: primary_legislation
+        cite: 'Section 72 — Transfers of personal information outside Republic'
+      - title: 'Michalsons: Guidance Note on Cross-Border Transfers under POPIA'
+        url: https://www.michalsons.com/blog/guidance-note-on-cross-border-transfers-to-from-south-africa/77246
+        evidence_kind: reputable_press
+        cite: 'Information Regulator finalising guidance note (March 2026)'
+      - title: 'ITIF: South Africa Cross-Border Data Transfer Regulation'
+        url: https://itif.org/publications/2025/06/02/south-africa-cross-border-data-transfer-regulation/
+        evidence_kind: industry_analysis
+        cite: 'June 2025'
+      - title: 'VDT Attorneys: South Africa AI and Data Privacy Regulations'
+        url: https://vdt.co.za/popia/south-africa-ai-and-data-privacy-regulations-the-complexities-of-ai-technologies-and-processingpersonal-information/
+        evidence_kind: industry_analysis
   safe_residencies: [ZA, EU, GB]
   risky_residencies: [US, CN, RU, IR, KP]
   tool_avoid_list:
-    - tool_name: TikTok
+    - vendor: OpenAI
+      tool_name: ChatGPT
       severity: warn
-      reason: ByteDance ownership creates a state-access risk for source material.
+      reason: |
+        US-resident processing brings the workflow within POPIA s.72 cross-border-
+        transfer rules. The 2024 Reforming Intelligence and Securing America Act
+        (RISAA) reauthorised FISA Section 702 and expanded its definition of
+        "electronic communications service provider" to include remote-computing /
+        cloud-service providers — meaning US-hosted cloud services that store or
+        transmit communications are now explicitly within Section 702 surveillance
+        authority. The consumer ChatGPT tier defaults to training on user input;
+        the Enterprise tier opts out but residency remains US. For source-
+        protection material, avoid pasting into ChatGPT; if used at all, require
+        Enterprise tier with a written DPA and a transfer-impact assessment.
+      sources:
+        - title: 'POPIA s.72'
+          url: https://www.gov.za/sites/default/files/gcis_document/201409/3706726-11act4of2013popi.pdf
+          evidence_kind: primary_legislation
+          cite: 'Section 72 — Transfers of personal information outside Republic'
+        - title: 'Congressional Research Service: FISA Section 702 and the 2024 RISAA'
+          url: https://www.congress.gov/crs-product/R48592
+          evidence_kind: primary_legislation
+          cite: 'RISAA expanded ECSP definition to remote-computing / cloud services (April 2024)'
+        - title: 'Brennan Center: FISA Section 702 — 2026 Resource Page'
+          url: https://www.brennancenter.org/our-work/research-reports/section-702-foreign-intelligence-surveillance-act-fisa-2026-resource-page
+          evidence_kind: industry_analysis
+        - title: 'Cloudgate: Private AI for South African Businesses'
+          url: https://www.cloudgate.co.za/2026/04/07/private-ai-for-south-african-businesses-why-data-sovereignty-matters-more-than-ever/
+          evidence_kind: industry_analysis
+          cite: 'April 2026'
+      last_verified: '2026-05-18'
+
     - vendor: DeepSeek
       severity: avoid
-      reason: Chinese-origin model; POPIA cross-border transfer rules and source-protection concerns.
-    - vendor: OpenAI
-      severity: warn
-      reason: US-resident; consider data-residency-tier contract or enterprise plan with EU residency before exposing source-protection material.
+      reason: |
+        Chinese-resident model; user data stored on PRC servers. China's 2017
+        National Intelligence Law (Articles 7 and 14) obliges organisations to
+        support state-intelligence work, including handing over data on lawful
+        request without notice to data subjects. Italy's Garante (DPA) ordered
+        DeepSeek out of the Italian app stores in January 2025 after the company
+        failed to explain its data-handling practices under GDPR. Australia banned
+        DeepSeek from all government devices and systems in February 2025 citing
+        national-security risks. Taiwan banned it across the public sector. The
+        Czech Republic banned it in public administration. France, Ireland,
+        Belgium, the Netherlands and Germany have formal investigations open. A
+        POPIA s.72 transfer to the PRC is unlikely to satisfy the "comparable law"
+        threshold for any source-protection or personal data.
+      sources:
+        - title: 'TechCrunch: DeepSeek — countries and agencies that have banned the company''s tech'
+          url: https://techcrunch.com/2025/02/03/deepseek-the-countries-and-agencies-that-have-banned-the-ai-companys-tech/
+          evidence_kind: reputable_press
+          cite: 'February 2025 — overview'
+        - title: 'Sustainable Tech Partner: DeepSeek banned and permitted — list of government actions'
+          url: https://sustainabletechpartner.com/news/deepseek-banned-and-permitted-in-which-counties-list-of-government-actions-vs-china-based-ai-software/
+          evidence_kind: industry_analysis
+        - title: 'Free-Codecs: DeepSeek privacy concerns and global bans explained'
+          url: https://www.free-codecs.com/news/is-deepseek-safe-privacy-concerns-security-flaws-and-global-bans-explained.htm
+          evidence_kind: industry_analysis
+          cite: '2026 review'
+      last_verified: '2026-05-18'
 
+    - tool_name: TikTok
+      severity: warn
+      reason: |
+        ByteDance ownership creates Chinese-state-access risk under PRC intelligence
+        law. No formal South African ban exists as of mid-2026, but the SA
+        government is in active consultation with regulators on social-media
+        policy intervention — including potential age-verification regimes
+        modelled on Australia's. Globally: Gabon banned TikTok in February 2026;
+        the US forced restructuring into majority-American ownership in January
+        2026 specifically to address national-security concerns. For newsrooms:
+        do not use TikTok DMs to receive source contacts and do not upload
+        unpublished material for editing; treat as a publish-only channel.
+      sources:
+        - title: 'BusinessTech: Facebook, TikTok, and Instagram ban on the cards for South Africa'
+          url: https://businesstech.co.za/news/media/846195/facebook-tiktok-and-instagram-ban-on-the-cards-for-south-africa/
+          evidence_kind: reputable_press
+        - title: 'Wikipedia: Censorship of TikTok'
+          url: https://en.wikipedia.org/wiki/Censorship_of_TikTok
+          evidence_kind: reputable_press
+        - title: 'Euronews: Which countries have banned TikTok and why'
+          url: https://www.euronews.com/next/2025/01/17/which-countries-have-banned-tiktok-cybersecurity-data-privacy-espionage-fears
+          evidence_kind: reputable_press
+          cite: 'January 2025 overview'
+      last_verified: '2026-05-18'
+
+# ──────────────────────────────────────────────────────────────────────
+# Zimbabwe (ZW) — light pack pending deep research.
+# ──────────────────────────────────────────────────────────────────────
 ZW:
-  data_law_summary: >
-    Zimbabwe's Cyber and Data Protection Act (2021) governs personal-data
-    processing and cross-border transfers. The current political environment
-    creates elevated source-protection concerns — even tools resident in
-    'safe' jurisdictions may be subject to local subpoena requests if the
-    vendor has a Zimbabwean entity. Local-only processing is preferred for
-    high-sensitivity work.
+  audit_depth: light
+  last_verified: '2026-05-18'
+  data_law_summary:
+    text: >
+      Zimbabwe's Cyber and Data Protection Act (No. 5 of 2021) governs personal-
+      data processing and cross-border transfers, administered by POTRAZ (Postal
+      and Telecommunications Regulatory Authority of Zimbabwe). Local political
+      context warrants elevated source-protection caution; prefer local
+      processing for high-sensitivity work. NOTE: this pack has not yet been
+      deep-researched — content reflects general framework knowledge, not
+      verified case law or recent regulator action.
+    sources:
+      - title: 'Cyber and Data Protection Act, 2021 (Zimbabwe)'
+        evidence_kind: primary_legislation
+        cite: 'Act 5 of 2021'
   safe_residencies: [EU, GB, ZA]
   risky_residencies: [US, CN, RU, IR, KP]
   tool_avoid_list:
     - tool_name: TikTok
       severity: avoid
-      reason: ByteDance ownership + government interest in social-media monitoring locally.
+      reason: ByteDance ownership + government interest in social-media monitoring locally creates elevated source-protection risk.
+      sources: []
+      last_verified: '2026-05-18'
     - vendor: DeepSeek
       severity: avoid
-      reason: Chinese-origin model; source-protection concerns.
+      reason: Chinese-origin model; source-protection concerns under PRC intelligence law.
+      sources: []
+      last_verified: '2026-05-18'
     - vendor: OpenAI
       severity: warn
-      reason: US-resident; FISA 702 scope of data access.
+      reason: US-resident; FISA 702 cloud-services expansion (2024 RISAA) extends potential US-government access to commercial cloud data.
+      sources: []
+      last_verified: '2026-05-18'
 
+# ──────────────────────────────────────────────────────────────────────
+# Zambia (ZM) — light pack pending deep research.
+# ──────────────────────────────────────────────────────────────────────
 ZM:
-  data_law_summary: >
-    Zambia's Data Protection Act (No. 3 of 2021) governs personal-data
-    processing and cross-border transfers. Similar source-protection concerns
-    to ZW apply — prefer local processing for high-sensitivity work and treat
-    US / CN residencies as carrying elevated risk.
+  audit_depth: light
+  last_verified: '2026-05-18'
+  data_law_summary:
+    text: >
+      Zambia's Data Protection Act (No. 3 of 2021) governs personal-data
+      processing and cross-border transfers. Similar source-protection concerns
+      to ZW apply; prefer local processing for high-sensitivity work and treat
+      US / CN residencies as carrying elevated risk. NOTE: this pack has not
+      yet been deep-researched.
+    sources:
+      - title: 'Data Protection Act, 2021 (Zambia)'
+        evidence_kind: primary_legislation
+        cite: 'Act 3 of 2021'
   safe_residencies: [EU, GB, ZA]
   risky_residencies: [US, CN, RU, IR, KP]
   tool_avoid_list:
     - tool_name: TikTok
       severity: warn
-      reason: ByteDance ownership; state-access risk for source material.
+      reason: ByteDance ownership; state-access risk for source material under PRC intelligence law.
+      sources: []
+      last_verified: '2026-05-18'
     - vendor: DeepSeek
       severity: avoid
       reason: Chinese-origin model; source-protection concerns.
+      sources: []
+      last_verified: '2026-05-18'
 
+# ──────────────────────────────────────────────────────────────────────
+# Kenya (KE) — light pack pending deep research.
+# ──────────────────────────────────────────────────────────────────────
 KE:
-  data_law_summary: >
-    Kenya's Data Protection Act (2019) governs personal-data processing and
-    cross-border transfers, administered by the Office of the Data Protection
-    Commissioner (ODPC). Cross-border transfers to non-adequate jurisdictions
-    require contractual safeguards. Treat US / CN tools as warranting an
-    explicit data-transfer impact assessment for source-protection material.
+  audit_depth: light
+  last_verified: '2026-05-18'
+  data_law_summary:
+    text: >
+      Kenya's Data Protection Act (2019) governs personal-data processing and
+      cross-border transfers, administered by the Office of the Data Protection
+      Commissioner (ODPC). Cross-border transfers to non-adequate jurisdictions
+      require contractual safeguards. NOTE: this pack has not yet been deep-
+      researched.
+    sources:
+      - title: 'Data Protection Act, 2019 (Kenya)'
+        evidence_kind: primary_legislation
+      - title: 'Office of the Data Protection Commissioner (ODPC) — Kenya'
+        url: https://www.odpc.go.ke/
+        evidence_kind: regulator_guidance
   safe_residencies: [EU, GB, KE]
   risky_residencies: [CN, RU, IR, KP]
   tool_avoid_list:
     - tool_name: TikTok
       severity: warn
       reason: ByteDance ownership creates state-access risk.
+      sources: []
+      last_verified: '2026-05-18'
     - vendor: DeepSeek
       severity: avoid
       reason: Chinese-origin model; source-protection concerns.
+      sources: []
+      last_verified: '2026-05-18'
     - vendor: OpenAI
       severity: warn
       reason: US-resident; consider whether a Kenyan-DPA-aligned contract is in place.
+      sources: []
+      last_verified: '2026-05-18'
 
+# ──────────────────────────────────────────────────────────────────────
+# Tanzania (TZ) — light pack, new in 2026-05-18 pass.
+# ──────────────────────────────────────────────────────────────────────
+TZ:
+  audit_depth: light
+  last_verified: '2026-05-18'
+  data_law_summary:
+    text: >
+      Tanzania's Personal Data Protection Act, 2022 (Act No. 11 of 2022) governs
+      personal-data processing and cross-border transfers, administered by the
+      Personal Data Protection Commission (PDPC). Implementing regulations came
+      into force in 2023. Source-protection material in cross-border cloud
+      services warrants a transfer-impact assessment. NOTE: this pack has not
+      yet been deep-researched.
+    sources:
+      - title: 'Personal Data Protection Act, 2022 (Tanzania)'
+        evidence_kind: primary_legislation
+        cite: 'Act 11 of 2022'
+      - title: 'DLA Piper: Data Protection Laws of the World — Tanzania'
+        url: https://www.dlapiperdataprotection.com/index.html
+        evidence_kind: industry_analysis
+  safe_residencies: [EU, GB, ZA]
+  risky_residencies: [CN, RU, IR, KP]
+  tool_avoid_list:
+    - vendor: DeepSeek
+      severity: avoid
+      reason: Chinese-origin model; source-protection concerns.
+      sources: []
+      last_verified: '2026-05-18'
+    - tool_name: TikTok
+      severity: warn
+      reason: ByteDance ownership creates state-access risk for source material.
+      sources: []
+      last_verified: '2026-05-18'
+
+# ──────────────────────────────────────────────────────────────────────
+# Uganda (UG) — light pack, new in 2026-05-18 pass.
+# ──────────────────────────────────────────────────────────────────────
+UG:
+  audit_depth: light
+  last_verified: '2026-05-18'
+  data_law_summary:
+    text: >
+      Uganda's Data Protection and Privacy Act, 2019 (Act 9 of 2019) and the
+      Data Protection and Privacy Regulations, 2021 govern personal-data
+      processing and cross-border transfers, administered by the Personal Data
+      Protection Office (PDPO) under NITA-U. Source-protection material warrants
+      heightened caution given local political context. NOTE: this pack has not
+      yet been deep-researched.
+    sources:
+      - title: 'Data Protection and Privacy Act, 2019 (Uganda)'
+        evidence_kind: primary_legislation
+        cite: 'Act 9 of 2019'
+      - title: 'DLA Piper: Data Protection Laws of the World — Uganda'
+        url: https://www.dlapiperdataprotection.com/index.html
+        evidence_kind: industry_analysis
+  safe_residencies: [EU, GB, ZA]
+  risky_residencies: [CN, RU, IR, KP]
+  tool_avoid_list:
+    - vendor: DeepSeek
+      severity: avoid
+      reason: Chinese-origin model; source-protection concerns under PRC intelligence law.
+      sources: []
+      last_verified: '2026-05-18'
+    - tool_name: TikTok
+      severity: warn
+      reason: ByteDance ownership creates state-access risk for source material.
+      sources: []
+      last_verified: '2026-05-18'
+
+# ──────────────────────────────────────────────────────────────────────
+# Ghana (GH) — light pack, new in 2026-05-18 pass.
+# ──────────────────────────────────────────────────────────────────────
+GH:
+  audit_depth: light
+  last_verified: '2026-05-18'
+  data_law_summary:
+    text: >
+      Ghana's Data Protection Act, 2012 (Act 843) governs personal-data
+      processing and cross-border transfers, administered by the Data Protection
+      Commission (DPC). Ghana is one of the longer-established African data-
+      protection regimes. NOTE: this pack has not yet been deep-researched.
+    sources:
+      - title: 'Data Protection Act, 2012 (Ghana)'
+        evidence_kind: primary_legislation
+        cite: 'Act 843'
+      - title: 'Data Protection Commission — Ghana'
+        url: https://www.dataprotection.org.gh/
+        evidence_kind: regulator_guidance
+      - title: 'DLA Piper: Data Protection Laws of the World — Ghana'
+        url: https://www.dlapiperdataprotection.com/index.html
+        evidence_kind: industry_analysis
+  safe_residencies: [EU, GB, GH]
+  risky_residencies: [CN, RU, IR, KP]
+  tool_avoid_list:
+    - vendor: DeepSeek
+      severity: avoid
+      reason: Chinese-origin model; source-protection concerns under PRC intelligence law.
+      sources: []
+      last_verified: '2026-05-18'
+    - tool_name: TikTok
+      severity: warn
+      reason: ByteDance ownership creates state-access risk for source material.
+      sources: []
+      last_verified: '2026-05-18'
+
+# ──────────────────────────────────────────────────────────────────────
+# Nigeria (NG) — light pack, new in 2026-05-18 pass.
+# ──────────────────────────────────────────────────────────────────────
+NG:
+  audit_depth: light
+  last_verified: '2026-05-18'
+  data_law_summary:
+    text: |
+      Nigeria's Data Protection Act, 2023 (NDPA, in force from 12 June 2023) is the
+      country's primary data-protection regime, replacing the earlier NDPR / NITDA
+      framework. It establishes the Nigeria Data Protection Commission (NDPC) as
+      the regulator. The General Application and Implementation Directive (GAID)
+      2025 sets out compliance guidance for data controllers and processors,
+      including cross-border-transfer mechanisms. NOTE: this pack has been
+      verified against primary regulator sources but has not yet had the deep
+      avoid-list research the ZA pack has received.
+    sources:
+      - title: 'Nigeria Data Protection Act, 2023'
+        url: https://ndpc.gov.ng/download/nigeria-data-protection-act-2023
+        evidence_kind: primary_legislation
+        cite: 'In force 12 June 2023'
+      - title: 'Nigeria Data Protection Commission (NDPC)'
+        url: https://www.ndpc.gov.ng/
+        evidence_kind: regulator_guidance
+      - title: 'NDPC: General Application and Implementation Directive (GAID) 2025'
+        url: https://ndpc.gov.ng/wp-content/uploads/2025/03/NDP-ACT-GAID-2025-MARCH-20TH.pdf
+        evidence_kind: regulator_guidance
+        cite: 'March 2025'
+      - title: 'Future of Privacy Forum: Nigeria''s New Data Protection Act, Explained'
+        url: https://fpf.org/blog/nigerias-new-data-protection-act-explained/
+        evidence_kind: industry_analysis
+  safe_residencies: [EU, GB, NG]
+  risky_residencies: [CN, RU, IR, KP]
+  tool_avoid_list:
+    - vendor: DeepSeek
+      severity: avoid
+      reason: Chinese-origin model; source-protection concerns under PRC intelligence law.
+      sources: []
+      last_verified: '2026-05-18'
+    - tool_name: TikTok
+      severity: warn
+      reason: ByteDance ownership creates state-access risk for source material.
+      sources: []
+      last_verified: '2026-05-18'
+
+# ──────────────────────────────────────────────────────────────────────
+# European Union (EU) — light pack pending deep research.
+# ──────────────────────────────────────────────────────────────────────
 EU:
-  data_law_summary: >
-    GDPR governs personal-data processing in the EU. Cross-border transfers
-    to non-adequate countries require either Standard Contractual Clauses or
-    a transfer-impact assessment. The Schrems II ruling specifically tightened
-    the bar on US-resident processors handling EU personal data.
+  audit_depth: light
+  last_verified: '2026-05-18'
+  data_law_summary:
+    text: |
+      GDPR governs personal-data processing in the EU. Cross-border transfers to
+      non-adequate countries require Standard Contractual Clauses or a transfer-
+      impact assessment. The Schrems II ruling (CJEU Case C-311/18, July 2020)
+      tightened the bar specifically on US-resident processors handling EU
+      personal data. NOTE: this pack has not yet been deep-researched.
+    sources:
+      - title: 'General Data Protection Regulation (EU) 2016/679'
+        evidence_kind: primary_legislation
+      - title: 'CJEU Case C-311/18 (Schrems II)'
+        url: https://curia.europa.eu/juris/document/document.jsf?docid=228677&doclang=EN
+        evidence_kind: case_law
+        cite: 'July 2020 judgment'
   safe_residencies: [EU, GB]
   risky_residencies: [CN, RU, IR, KP]
   tool_avoid_list:
     - vendor: DeepSeek
       severity: avoid
-      reason: Chinese-origin model; cross-border transfer concerns.
+      reason: Chinese-origin model; cross-border transfer concerns under GDPR; multiple EU DPAs have formal investigations open.
+      sources: []
+      last_verified: '2026-05-18'
     - tool_name: TikTok
       severity: warn
       reason: ByteDance ownership; ongoing EU regulatory scrutiny.
+      sources: []
+      last_verified: '2026-05-18'
     - vendor: OpenAI
       severity: warn
       reason: US-resident processor; Schrems II implications for any personal-data flow.
+      sources: []
+      last_verified: '2026-05-18'
 
+# ──────────────────────────────────────────────────────────────────────
+# United States (US) — light pack pending deep research.
+# ──────────────────────────────────────────────────────────────────────
 US:
-  data_law_summary: >
-    No comprehensive federal data-protection regime; state-level rules
-    (notably California's CCPA / CPRA) apply to consumer personal information.
-    Foreign-vendor residencies in adversary jurisdictions carry national-security
-    review risks; CN-resident tools are increasingly restricted on federal devices.
+  audit_depth: light
+  last_verified: '2026-05-18'
+  data_law_summary:
+    text: >
+      No comprehensive federal data-protection regime; state-level rules apply
+      (notably California's CCPA / CPRA). Foreign-vendor residencies in adversary
+      jurisdictions carry national-security review risks; CN-resident tools are
+      increasingly restricted on federal devices. NOTE: this pack has not yet
+      been deep-researched.
+    sources:
+      - title: 'California Consumer Privacy Act (CCPA) / California Privacy Rights Act (CPRA)'
+        evidence_kind: primary_legislation
   safe_residencies: [US, EU, GB, CA]
   risky_residencies: [CN, RU, IR, KP]
   tool_avoid_list:
     - vendor: DeepSeek
       severity: avoid
-      reason: Chinese-origin model; data-handling under PRC law unclear.
+      reason: Chinese-origin model; data-handling under PRC law unclear; restricted on multiple federal-government devices.
+      sources: []
+      last_verified: '2026-05-18'
     - tool_name: TikTok
       severity: warn
-      reason: ByteDance ownership; ongoing federal restrictions on government devices.
+      reason: ByteDance ownership; ongoing federal restrictions on government devices; restructured into majority-American ownership Jan 2026.
+      sources: []
+      last_verified: '2026-05-18'

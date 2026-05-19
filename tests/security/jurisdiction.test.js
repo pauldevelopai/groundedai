@@ -204,3 +204,62 @@ test('scoreInventory empty inventory → low overall', () => {
   assert.equal(r.overall_risk_band, 'low');
   assert.deepEqual(r.counts, { low: 0, medium: 0, high: 0, critical: 0 });
 });
+
+// ── 2026-05-18 research-grade additions ─────────────────────────────────
+
+test('ZA pack has audit_depth=deep and at least one primary-legislation source', () => {
+  reload();
+  const p = packFor('ZA');
+  assert.equal(p.audit_depth, 'deep');
+  assert.ok(p.last_verified, 'last_verified must be set');
+  assert.ok(p.data_law_sources.length > 0, 'data_law_sources must be populated');
+  assert.ok(
+    p.data_law_sources.some((s) => s.evidence_kind === 'primary_legislation'),
+    'at least one primary_legislation citation expected on the ZA summary',
+  );
+});
+
+test('ZA OpenAI/ChatGPT avoid-list entry carries sources through to scoreTool reasons', () => {
+  reload();
+  const r = scoreTool({ vendor: 'OpenAI', tool_name: 'ChatGPT', data_residency: 'US' }, 'ZA');
+  const avoidReason = r.reasons.find((x) => x.kind === 'avoid_listed');
+  assert.ok(avoidReason, 'avoid_listed reason must be present');
+  assert.ok(Array.isArray(avoidReason.sources) && avoidReason.sources.length > 0,
+    'avoid_listed reason must carry sources from the YAML');
+  assert.ok(
+    avoidReason.sources.some((s) => s.evidence_kind === 'primary_legislation'),
+    'sources should include a primary_legislation reference (POPIA s.72 / RISAA)',
+  );
+  assert.ok(avoidReason.last_verified, 'last_verified must be passed through');
+});
+
+test('Nigeria (NG) pack is registered, light depth, with NDPA primary source', () => {
+  reload();
+  const p = packFor('NG');
+  assert.equal(p.audit_depth, 'light');
+  assert.ok(p.data_law_sources.some((s) => s.evidence_kind === 'primary_legislation'),
+    'NDPA 2023 must be cited as primary_legislation');
+});
+
+test('Tanzania, Uganda, Ghana all registered as light packs', () => {
+  reload();
+  for (const j of ['TZ', 'UG', 'GH']) {
+    const p = packFor(j);
+    assert.equal(p.audit_depth, 'light', `${j} should be light depth`);
+    assert.ok(p.data_law_sources.length > 0, `${j} should cite its data-protection act`);
+  }
+});
+
+test('vendor-only override replaces vendor+tool_name pack entry (loose match)', () => {
+  reload();
+  // ZA pack has { vendor: 'OpenAI', tool_name: 'ChatGPT', severity: 'warn' }.
+  // A vendor-only override should fully replace it.
+  const { mergePackWithOverrides } = require('../../lib/security/jurisdiction');
+  const pack = packFor('ZA');
+  const merged = mergePackWithOverrides(pack, {
+    tool_avoid_list: [{ vendor: 'OpenAI', severity: 'prohibit', reason: 'tightened policy' }],
+  });
+  const openai = merged.tool_avoid_list.filter((e) => (e.vendor || '').toLowerCase() === 'openai');
+  assert.equal(openai.length, 1, 'exactly one OpenAI entry after merge');
+  assert.equal(openai[0].severity, 'prohibit');
+});
