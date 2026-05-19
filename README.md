@@ -14,7 +14,7 @@
 - **Pilot scope:** 5 ZimZam newsrooms initially, scaling toward 120+ across the continent. Build window Jul–Dec 2026; grantee charging begins Jan 2027.
 - **Open source:** Apache-2.0. Designed to outlive Develop AI — any successor team can fork, inspect, and run independently.
 
-The product specification of record is [`docs/AGENTS.md`](docs/AGENTS.md). The V2 build plan is in [`docs/V2_PLAN.md`](docs/V2_PLAN.md). The original funder-facing concept note frames the why.
+The product specification of record is [`docs/AGENTS.md`](docs/AGENTS.md). The V2 build plan is in [`docs/V2_PLAN.md`](docs/V2_PLAN.md). The original funder-facing concept note frames the why. **For forward-looking work** (what's outstanding, who's owning it, what's deferred and why), start at [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ---
 
@@ -239,11 +239,14 @@ appliances/
   README.md               Operations manual
 
 docs/
+  ROADMAP.md              READ FIRST when picking the project back up — outstanding work, owners, deferrals
   AGENTS.md               CANONICAL agent definitions (source of truth)
-  V2_PLAN.md              Six V2 steps with confirm-before-next gates
-  BRIEFING.md             Project scope brief
+  V2_PLAN.md              Six V2 steps with confirm-before-next gates (shipped)
+  SECURITY_AUDIT_PLAN.md  Tool #5 build plan (shipped Slices A–D)
+  APPLIANCE_EXECUTION_PLAN.md   V2 Step 6.x scope plan — real Ollama-backed execution on the appliance (not yet built)
+  BRIEFING.md             Original 2026-05-04 brief — build methodology valid, portfolio framing SUPERSEDED
   CONSOLIDATION_PLAN.md   V1 → V1.1 consolidation history
-  HANDOFF.md              Cross-session handoff notes (may have stale paths)
+  HANDOFF.md              Cross-session handoff notes (snapshot 2026-05-11)
   OPEN_DECISIONS.md       Pending decisions
   PILOT_PUNCHLIST.md      Pilot-readiness checklist
 
@@ -323,11 +326,12 @@ Grounded is built to outlive Develop AI. The codebase is Apache-2.0 so any newsr
 
 If you're picking this up:
 
-1. Read [`docs/AGENTS.md`](docs/AGENTS.md) first — it's the canonical product spec.
-2. Read [`docs/V2_PLAN.md`](docs/V2_PLAN.md) — it explains the federated architecture and the order things landed.
-3. Respect the **locked rules** above. Most have a real incident behind them.
-4. Per-newsroom isolation is non-negotiable. New tables get `newsroom_id` from day one.
-5. Every new dependency must be OSS + fully free or it doesn't ship.
+1. Read [`docs/ROADMAP.md`](docs/ROADMAP.md) first — single forward-looking view of what's outstanding.
+2. Read [`docs/AGENTS.md`](docs/AGENTS.md) — canonical product spec for the 8 agents + 5 tools.
+3. Read [`docs/V2_PLAN.md`](docs/V2_PLAN.md) — explains the federated architecture and the order things landed.
+4. Respect the **locked rules** above. Most have a real incident behind them.
+5. Per-newsroom isolation is non-negotiable. New tables get `newsroom_id` from day one.
+6. Every new dependency must be OSS + fully free or it doesn't ship.
 
 ---
 
