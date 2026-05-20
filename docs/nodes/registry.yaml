@@ -1,0 +1,127 @@
+# GROUNDED Nodes Registry
+# ─────────────────────────────────────────────────────────────────────────
+# The authoritative list of every Node in the GROUNDED ecosystem.
+#
+# Source of truth ranking:
+#   1. Airtable Prototypes table (tblRRBWr0giwAKZnJ) — operational truth
+#   2. This file (registry.yaml) — engineering truth
+#   3. Drive Doc "GROUNDED Nodes Registry" — human-readable mirror
+#
+# When they disagree, Airtable wins. Update all three when a Node changes.
+#
+# Status values: concept | build | pilot | graduated | sunset
+# ─────────────────────────────────────────────────────────────────────────
+
+version: 1.1
+last_updated: 2026-05-20
+maintainer: paul@developai.co.za
+
+# Repos that are foundational infrastructure, not Nodes themselves.
+foundations:
+  - name: grounded-node-runtime
+    repo: pauldevelopai/grounded-node-runtime
+    visibility: public
+    purpose: >
+      Shared scaffolding npm package every Node depends on.
+      Provides createLiteHost and createServer.
+    current_version: 0.4.0
+
+  - name: grounded-cohort-harvest
+    repo: pauldevelopai/grounded-cohort-harvest
+    visibility: private
+    purpose: >
+      Paul's operational kit. Walks every newsroom's fork to pull
+      activity logs into a cohort-wide view.
+    current_version: 0.1.0
+
+# Nodes currently in the standalone phase (forked-and-run-on-laptop).
+standalone:
+  - slug: makanday-analytics
+    name: MakanDay Audience Signal
+    repo: pauldevelopai/node-makanday-analytics
+    visibility: public
+    status: pilot
+    current_version: 0.4.0
+    born: 2026-05-20
+    runs_on: laptop
+    storage: json-files
+    ai_providers:
+      - anthropic
+      - openai
+    default_models:
+      anthropic: claude-haiku-4-5
+      openai: gpt-5.4-mini
+    newsrooms_running:
+      - makanday
+    pilot_newsroom: makanday
+    graduation_criteria:
+      newsrooms_using: 3
+      generated_briefs: 50
+      brief_accept_rate: 0.60
+    graduation_progress:
+      newsrooms_using: 1
+      generated_briefs: 0
+      brief_accept_rate: null
+    graduation_target: agent:audience
+    drive_docs:
+      readme: "https://docs.google.com/document/d/1ZylK9nvAby-SHpnkoAI5Ng7ul8xhha34j5Dm02LJ4bY/edit"
+      build_log: "https://docs.google.com/document/d/1-deIqsyfDUHxHe77bah6OxxgW2K2_UbvvrXEMpYT3JU/edit"
+    airtable_records:
+      - tblRRBWr0giwAKZnJ/rec6KhWrwCWlo5udq
+      - tblRRBWr0giwAKZnJ/recX2IiSHPA2T4vNY
+    description: >
+      Owned-data audience-resonance analytics for an investigative
+      newsroom. Reads MakanDay's 120-story 2025 Facebook performance
+      matrix; surfaces what their audience actually rewards versus
+      what's boosted to look popular.
+
+  - slug: capitalfm-verifier
+    name: Capital FM Claim Check
+    repo: pauldevelopai/node-capitalfm-verifier
+    visibility: public
+    status: build
+    current_version: 0.1.0
+    born: 2026-05-20
+    runs_on: laptop
+    storage: json-files
+    ai_providers:
+      - anthropic
+      - openai
+    default_models:
+      anthropic: claude-haiku-4-5
+      openai: gpt-5.4-mini
+    newsrooms_running: []
+    pilot_newsroom: capitalfm
+    graduation_criteria:
+      newsrooms_using: 3
+      generated_verifications: 50
+      verification_accept_rate: 0.60
+    graduation_progress:
+      newsrooms_using: 0
+      generated_verifications: 0
+      verification_accept_rate: null
+    graduation_target: agent:verifier
+    election_window: 2026-08
+    framing_note: >
+      v0.1.0 is framed for the August 2026 Zambian elections.
+      Architecture is general-purpose claim verification — the
+      Zambian-electoral context lives in the corpus (data), not
+      the code. Post-August the framing softens.
+    airtable_records:
+      - tblRRBWr0giwAKZnJ/recKCiWdInWz6RI1G
+    description: >
+      AI-assisted misinformation defence and verification. Journalist
+      pastes a suspect claim (text and/or screenshot) plus optional
+      source URL; AI compares against newsroom-maintained corpus of
+      past Zambian-election misinformation cases and returns structured
+      verification report with tier, matching past examples, reasoning
+      chain, further checks, and suggested draft response.
+
+# Nodes that have graduated into the GROUNDED monorepo.
+integrated: []
+
+# Nodes that have been retired.
+sunset: []
+
+# Nodes under active consideration but not yet built.
+concepts: []
