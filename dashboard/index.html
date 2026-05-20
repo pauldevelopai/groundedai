@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GROUNDED · Cohort Dashboard</title>
+  <style>
+    :root {
+      --bg: #faf9f6;
+      --fg: #1c1c1a;
+      --muted: #6b6b66;
+      --line: #e5e3da;
+      --card: #ffffff;
+      --accent: #1d4e8a;
+      --accent-dim: #8bb89a;
+      --good: #2c6b35;
+      --warn: #8a6d1d;
+      --bad: #8a2c2c;
+      --bg-soft: #f4f1ea;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px; line-height: 1.55; }
+    header { padding: 1.75rem 2rem 1rem; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
+    header h1 { margin: 0; font-size: 1.3rem; font-weight: 600; letter-spacing: 1.4px; }
+    header h1::before { content: ""; display: inline-block; width: 8px; height: 8px; background: var(--accent-dim); border-radius: 50%; margin-right: 0.55rem; vertical-align: 0.18em; }
+    header .subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+    header .harvest-meta { font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+    nav { padding: 0 2rem; display: flex; gap: 1.75rem; border-bottom: 1px solid var(--line); background: var(--bg); }
+    nav button { background: none; border: none; padding: 0.75rem 0; font-size: 0.92rem; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; font-family: inherit; }
+    nav button.active { color: var(--fg); border-bottom-color: var(--accent); font-weight: 500; }
+    main { padding: 1.5rem 2rem 4rem; max-width: 1280px; margin: 0 auto; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.85rem; margin-bottom: 1.5rem; }
+    .summary { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 0.9rem 1rem; }
+    .summary .label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; }
+    .summary .value { font-size: 1.7rem; font-weight: 600; margin-top: 0.15rem; font-variant-numeric: tabular-nums; }
+    .summary .sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.15rem; }
+    h2 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.65rem; }
+    .matrix-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 0.6rem 0.85rem; font-size: 0.85rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    th { color: var(--muted); font-weight: 500; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; background: var(--bg-soft); }
+    tbody tr:last-child td { border-bottom: none; }
+    td.num { font-variant-numeric: tabular-nums; color: var(--muted); }
+    td.fresh { color: var(--good); font-weight: 500; }
+    td.stale { color: var(--warn); }
+    td.cold { color: var(--bad); }
+    code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.82rem; background: var(--bg-soft); padding: 0.05rem 0.35rem; border-radius: 3px; }
+    .empty { color: var(--muted); font-style: italic; padding: 1.2rem 0; }
+    .activity-row, .error-row { padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--line); font-size: 0.85rem; }
+    .activity-row:last-child, .error-row:last-child { border-bottom: none; }
+    .activity-row .when, .error-row .when { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.78rem; margin-right: 0.6rem; }
+    .pill { display: inline-block; padding: 0.08rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 500; background: var(--bg-soft); color: var(--muted); margin-right: 0.4rem; vertical-align: 0.1em; }
+    .pill.node { background: #eef3f8; color: var(--accent); }
+    .pill.newsroom { background: #f0eadd; color: var(--warn); }
+    .error-row .op { font-weight: 500; color: var(--bad); }
+    .error-row .msg { color: var(--fg); margin-top: 0.2rem; }
+    .error-row .ctx { color: var(--muted); margin-top: 0.15rem; font-size: 0.78rem; }
+    .filters { display: flex; gap: 0.6rem; margin-bottom: 0.85rem; flex-wrap: wrap; align-items: center; }
+    .filters select, .filters input { font-family: inherit; font-size: 0.85rem; padding: 0.35rem 0.55rem; border: 1px solid var(--line); border-radius: 5px; background: var(--card); color: var(--fg); }
+    .empty-state { background: var(--card); border: 1px dashed var(--line); border-radius: 8px; padding: 2rem; color: var(--muted); text-align: center; }
+    .empty-state code { display: block; margin-top: 0.75rem; }
+    footer { padding: 1.2rem 2rem; color: var(--muted); font-size: 0.75rem; border-top: 1px solid var(--line); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>GROUNDED · COHORT DASHBOARD</h1>
+    <div class="subtitle">Install matrix · activity · issues — across every newsroom running a GROUNDED Node</div>
+  </div>
+  <div class="harvest-meta" id="harvest-meta">No harvest yet.</div>
+</header>
+
+<nav>
+  <button class="tab active" data-panel="installs">Installs</button>
+  <button class="tab" data-panel="activity">Activity</button>
+  <button class="tab" data-panel="issues">Issues</button>
+</nav>
+
+<main>
+
+  <section id="panel-installs" class="panel active">
+    <div class="summary-grid" id="summary-installs"></div>
+    <h2>Install matrix</h2>
+    <div class="matrix-wrap" id="installs-matrix"></div>
+  </section>
+
+  <section id="panel-activity" class="panel">
+    <div class="summary-grid" id="summary-activity"></div>
+    <div class="filters">
+      <label>Node:</label>
+      <select id="filter-node-activity"><option value="">All</option></select>
+      <label>Newsroom:</label>
+      <select id="filter-newsroom-activity"><option value="">All</option></select>
+    </div>
+    <h2>Recent activity</h2>
+    <div id="activity-list"></div>
+  </section>
+
+  <section id="panel-issues" class="panel">
+    <div class="summary-grid" id="summary-issues"></div>
+    <div class="filters">
+      <label>Node:</label>
+      <select id="filter-node-issues"><option value="">All</option></select>
+      <label>Newsroom:</label>
+      <select id="filter-newsroom-issues"><option value="">All</option></select>
+    </div>
+    <h2>Recent errors</h2>
+    <div id="errors-list"></div>
+  </section>
+
+</main>
+
+<footer>
+  Static dashboard. To refresh: <code>cd groundedai &amp;&amp; node harvest/harvest.mjs</code> then reload this page.
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

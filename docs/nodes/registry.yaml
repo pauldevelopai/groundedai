@@ -23,16 +23,13 @@ foundations:
     visibility: public
     purpose: >
       Shared scaffolding npm package every Node depends on.
-      Provides createLiteHost and createServer.
-    current_version: 0.4.0
+      Provides createLiteHost + createServer + family chrome + telemetry.
+    current_version: 0.5.0
 
-  - name: grounded-cohort-harvest
-    repo: pauldevelopai/grounded-cohort-harvest
-    visibility: private
-    purpose: >
-      Paul's operational kit. Walks every newsroom's fork to pull
-      activity logs into a cohort-wide view.
-    current_version: 0.1.0
+# Cohort harvest + dashboard now live inside this repo:
+#   harvest/harvest.mjs    — walks newsroom forks, pulls telemetry JSON
+#   dashboard/index.html   — static cohort dashboard
+# The standalone grounded-cohort-harvest repo is archived (was v0.1.0).
 
 # Nodes currently in the standalone phase (forked-and-run-on-laptop).
 standalone:
