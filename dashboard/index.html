@@ -56,9 +56,20 @@
     .pill { display: inline-block; padding: 0.08rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 500; background: var(--bg-soft); color: var(--muted); margin-right: 0.4rem; vertical-align: 0.1em; }
     .pill.node { background: #eef3f8; color: var(--accent); }
     .pill.newsroom { background: #f0eadd; color: var(--warn); }
+    .pill.type-bug { background: #f7e1de; color: #8a3a2c; }
+    .pill.type-suggestion { background: #eaf0e3; color: #355e2c; }
+    .pill.type-praise { background: #f3e9d4; color: #7a5b1e; }
+    .pill.type-question { background: #e3ebf7; color: #1d4e8a; }
     .error-row .op { font-weight: 500; color: var(--bad); }
     .error-row .msg { color: var(--fg); margin-top: 0.2rem; }
     .error-row .ctx { color: var(--muted); margin-top: 0.15rem; font-size: 0.78rem; }
+    .feedback-list { background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .feedback-row { padding: 0.85rem 1rem; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
+    .feedback-row:last-child { border-bottom: none; }
+    .feedback-row .head { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.45rem; }
+    .feedback-row .head .when { font-variant-numeric: tabular-nums; }
+    .feedback-row .msg { color: var(--fg); white-space: pre-wrap; line-height: 1.55; }
+    .feedback-row .page { font-size: 0.74rem; color: var(--muted); margin-top: 0.3rem; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
     .filters { display: flex; gap: 0.6rem; margin-bottom: 0.85rem; flex-wrap: wrap; align-items: center; }
     .filters select, .filters input { font-family: inherit; font-size: 0.85rem; padding: 0.35rem 0.55rem; border: 1px solid var(--line); border-radius: 5px; background: var(--card); color: var(--fg); }
     .empty-state { background: var(--card); border: 1px dashed var(--line); border-radius: 8px; padding: 2rem; color: var(--muted); text-align: center; }
@@ -80,6 +91,7 @@
   <button class="tab active" data-panel="installs">Installs</button>
   <button class="tab" data-panel="activity">Activity</button>
   <button class="tab" data-panel="issues">Issues</button>
+  <button class="tab" data-panel="feedback">Feedback</button>
 </nav>
 
 <main>
@@ -112,6 +124,26 @@
     </div>
     <h2>Recent errors</h2>
     <div id="errors-list"></div>
+  </section>
+
+  <section id="panel-feedback" class="panel">
+    <div class="summary-grid" id="summary-feedback"></div>
+    <div class="filters">
+      <label>Node:</label>
+      <select id="filter-node-feedback"><option value="">All</option></select>
+      <label>Newsroom:</label>
+      <select id="filter-newsroom-feedback"><option value="">All</option></select>
+      <label>Type:</label>
+      <select id="filter-type-feedback">
+        <option value="">All</option>
+        <option value="bug">Bug</option>
+        <option value="suggestion">Suggestion</option>
+        <option value="praise">Praise</option>
+        <option value="question">Question</option>
+      </select>
+    </div>
+    <h2>Recent feedback</h2>
+    <div id="feedback-list"></div>
   </section>
 
 </main>

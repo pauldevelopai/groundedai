@@ -12,6 +12,7 @@
   let installs = [];
   let activity = [];
   let errors = [];
+  let feedback = [];
   let lastHarvest = null;
 
   async function boot() {
@@ -29,10 +30,11 @@
       installs = bundled.installs || [];
       activity = bundled.activity || [];
       errors = bundled.errors || [];
+      feedback = bundled.feedback || [];
       lastHarvest = bundled.lastHarvest || null;
     }
 
-    if (!installs.length && !activity.length && !errors.length && !lastHarvest) {
+    if (!installs.length && !activity.length && !errors.length && !feedback.length && !lastHarvest) {
       renderEmptyState();
       return;
     }
@@ -41,6 +43,7 @@
     renderInstalls();
     renderActivity();
     renderErrors();
+    renderFeedback();
     wireFilters();
   }
 
@@ -236,12 +239,65 @@
     `).join('');
   }
 
+  // ─── Feedback ─────────────────────────────────────────────────
+
+  function renderFeedback() {
+    const last7d = feedback.filter((f) => isWithin(f.ts, 7));
+    const byType = groupBy(feedback, 'type');
+    const bugCount = (byType['bug'] || []).length;
+    const suggCount = (byType['suggestion'] || []).length;
+
+    $('#summary-feedback').innerHTML = [
+      summaryCard('Total feedback', feedback.length, ''),
+      summaryCard('Last 7 days', last7d.length, ''),
+      summaryCard('Bugs', bugCount, ''),
+      summaryCard('Suggestions', suggCount, ''),
+    ].join('');
+
+    populateFilter('#filter-node-feedback', unique(feedback.map((f) => f.node_slug)));
+    populateFilter('#filter-newsroom-feedback', unique(feedback.map((f) => f.fork_owner)));
+
+    renderFeedbackList();
+  }
+
+  function renderFeedbackList() {
+    const nodeFilter = $('#filter-node-feedback').value;
+    const newsroomFilter = $('#filter-newsroom-feedback').value;
+    const typeFilter = $('#filter-type-feedback').value;
+    let list = feedback.slice(); // already sorted newest-first by harvest
+    if (nodeFilter) list = list.filter((f) => f.node_slug === nodeFilter);
+    if (newsroomFilter) list = list.filter((f) => f.fork_owner === newsroomFilter);
+    if (typeFilter) list = list.filter((f) => f.type === typeFilter);
+    list = list.slice(0, 200);
+
+    if (!list.length) {
+      $('#feedback-list').innerHTML = '<div class="empty">No feedback yet. The widget is in every Node\'s chrome — newsrooms can send anytime.</div>';
+      return;
+    }
+
+    $('#feedback-list').innerHTML = '<div class="feedback-list">' + list.map((f) => `
+      <div class="feedback-row">
+        <div class="head">
+          <span class="when">${f.ts ? new Date(f.ts).toLocaleString() : '—'}</span>
+          <span class="pill type-${esc(f.type || 'other')}">${esc(f.type || 'other')}</span>
+          <span class="pill node">${esc(f.node_display_name || f.node_slug || '?')}</span>
+          <span class="pill newsroom">${esc(f.newsroom || f.fork_owner || '?')}</span>
+        </div>
+        <div class="msg">${esc(f.message || '(no message)')}</div>
+        ${f.page ? `<div class="page">${esc(f.page)}</div>` : ''}
+      </div>
+    `).join('') + '</div>';
+  }
+
   function wireFilters() {
     ['#filter-node-activity', '#filter-newsroom-activity'].forEach((sel) =>
       $(sel).addEventListener('change', renderActivityList)
     );
     ['#filter-node-issues', '#filter-newsroom-issues'].forEach((sel) =>
       $(sel).addEventListener('change', renderErrorsList)
+    );
+    ['#filter-node-feedback', '#filter-newsroom-feedback', '#filter-type-feedback'].forEach((sel) =>
+      $(sel).addEventListener('change', renderFeedbackList)
     );
   }
 

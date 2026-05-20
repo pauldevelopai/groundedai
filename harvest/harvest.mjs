@@ -64,6 +64,7 @@ async function main() {
   const allInstalls = [];
   const allActivity = [];
   const allErrors = [];
+  const allFeedback = [];
 
   for (const node of targets) {
     log(`\n— ${node.slug} (${node.repo})`);
@@ -80,14 +81,15 @@ async function main() {
       const meta = await fetchTelemetryFile(src, node.slug, "meta");
       const activity = await fetchTelemetryFile(src, node.slug, "activity");
       const errors = await fetchTelemetryFile(src, node.slug, "errors");
+      const feedback = await fetchTelemetryFile(src, node.slug, "feedback");
 
-      if (!meta && !activity && !errors) {
+      if (!meta && !activity && !errors && !feedback) {
         if (args.verbose) log(`  ${src.label}: no telemetry files`);
         continue;
       }
 
       const newsroomLabel = src.owner;
-      log(`  ${newsroomLabel}: meta=${meta ? "y" : "n"} activity=${activity?.length || 0} errors=${errors?.length || 0}`);
+      log(`  ${newsroomLabel}: meta=${meta ? "y" : "n"} activity=${activity?.length || 0} errors=${errors?.length || 0} feedback=${feedback?.length || 0}`);
 
       if (meta) {
         allInstalls.push({
@@ -117,23 +119,35 @@ async function main() {
           fork_owner: src.owner,
         });
       }
+
+      for (const entry of feedback || []) {
+        allFeedback.push({
+          ...entry,
+          node_slug: node.slug,
+          node_display_name: node.displayName,
+          fork_owner: src.owner,
+        });
+      }
     }
   }
 
   // 3. Sort + write
   allActivity.sort((a, b) => (a.ts || "").localeCompare(b.ts || ""));
   allErrors.sort((a, b) => (a.ts || "").localeCompare(b.ts || ""));
+  allFeedback.sort((a, b) => (b.ts || "").localeCompare(a.ts || "")); // newest first — feedback is read top-to-bottom
 
   await ensureDir(OUT_DIR);
   await writeJson(join(OUT_DIR, "installs.json"), allInstalls);
   await writeJson(join(OUT_DIR, "activity.json"), allActivity);
   await writeJson(join(OUT_DIR, "errors.json"), allErrors);
+  await writeJson(join(OUT_DIR, "feedback.json"), allFeedback);
   const lastHarvest = {
     timestamp: new Date().toISOString(),
     nodes_harvested: targets.map((n) => n.slug),
     install_count: allInstalls.length,
     activity_count: allActivity.length,
     error_count: allErrors.length,
+    feedback_count: allFeedback.length,
   };
   await writeJson(join(OUT_DIR, "last_harvest.json"), lastHarvest);
 
@@ -144,6 +158,7 @@ async function main() {
     installs: allInstalls,
     activity: allActivity,
     errors: allErrors,
+    feedback: allFeedback,
     lastHarvest,
   };
   await writeFile(
@@ -154,7 +169,7 @@ async function main() {
     "utf8",
   );
 
-  log(`\n✓ Wrote ${allInstalls.length} install(s), ${allActivity.length} activity entries, ${allErrors.length} error(s) to ${OUT_DIR}`);
+  log(`\n✓ Wrote ${allInstalls.length} install(s), ${allActivity.length} activity entries, ${allErrors.length} error(s), ${allFeedback.length} feedback to ${OUT_DIR}`);
   log(`✓ Open dashboard/index.html in your browser to view.`);
 }
 
