@@ -76,7 +76,7 @@
   <div class="harvest-meta" id="harvest-meta">No harvest yet.</div>
 </header>
 
-<nav>
+<nav id="tabs">
   <button class="tab active" data-panel="installs">Installs</button>
   <button class="tab" data-panel="activity">Activity</button>
   <button class="tab" data-panel="issues">Issues</button>
@@ -117,9 +117,10 @@
 </main>
 
 <footer>
-  Static dashboard. To refresh: <code>cd groundedai &amp;&amp; node harvest/harvest.mjs</code> then reload this page.
+  Static dashboard. To refresh: <code>cd grounded &amp;&amp; node harvest/harvest.mjs</code> then reload this page.
 </footer>
 
+<script src="data/data.js" onerror="window.GROUNDED_DATA_MISSING=true"></script>
 <script src="app.js"></script>
 </body>
 </html>

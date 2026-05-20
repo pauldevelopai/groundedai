@@ -20,17 +20,17 @@
       b.addEventListener('click', () => activateTab(b))
     );
 
-    const [i, a, e, lh] = await Promise.all([
-      loadJson('data/installs.json'),
-      loadJson('data/activity.json'),
-      loadJson('data/errors.json'),
-      loadJson('data/last_harvest.json'),
-    ]);
-
-    installs = i || [];
-    activity = a || [];
-    errors = e || [];
-    lastHarvest = lh;
+    // Read from the global the harvest writes (data/data.js).
+    // The dashboard opens from file:// and modern browsers block
+    // fetch() on file://, so we don't use fetch — a <script src>
+    // tag loads the data synchronously before app.js runs.
+    const bundled = window.GROUNDED_DASHBOARD_DATA;
+    if (bundled) {
+      installs = bundled.installs || [];
+      activity = bundled.activity || [];
+      errors = bundled.errors || [];
+      lastHarvest = bundled.lastHarvest || null;
+    }
 
     if (!installs.length && !activity.length && !errors.length && !lastHarvest) {
       renderEmptyState();
@@ -54,13 +54,20 @@
   // ─── Empty state ──────────────────────────────────────────────
 
   function renderEmptyState() {
-    const main = document.querySelector('main');
-    main.innerHTML = `
+    // Hide the tabs entirely — there's nothing to switch between.
+    const nav = document.querySelector('#tabs');
+    if (nav) nav.style.display = 'none';
+
+    // Render the empty-state INSIDE the active installs panel so
+    // the page structure stays intact (panel CSS keeps padding etc.)
+    const panel = document.querySelector('#panel-installs');
+    panel.innerHTML = `
       <div class="empty-state">
         <strong>No harvest data yet.</strong>
         <p>Run the harvest to pull telemetry from every newsroom's fork of every Node:</p>
-        <code>cd groundedai &amp;&amp; node harvest/harvest.mjs</code>
+        <code>cd grounded &amp;&amp; node harvest/harvest.mjs</code>
         <p style="margin-top:1rem;font-size:0.85rem">Prerequisites: <code>gh</code> CLI installed and authenticated (<code>gh auth status</code>).</p>
+        <p style="margin-top:1rem;font-size:0.85rem">After the harvest writes <code>data/data.js</code>, reload this page.</p>
       </div>
     `;
   }
