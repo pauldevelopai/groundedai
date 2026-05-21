@@ -114,8 +114,8 @@ standalone:
       verification report with tier, matching past examples, reasoning
       chain, further checks, and suggested draft response.
 
-  - slug: explain-podcast-studio
-    name: Explain Podcast Studio
+  - slug: podcasting
+    name: Podcast Studio
     repo: pauldevelopai/node-podcasting
     visibility: public
     status: build
