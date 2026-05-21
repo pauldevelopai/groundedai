@@ -13,7 +13,7 @@
 # ─────────────────────────────────────────────────────────────────────────
 
 version: 1.1
-last_updated: 2026-05-20
+last_updated: 2026-05-21
 maintainer: paul@developai.co.za
 
 # Repos that are foundational infrastructure, not Nodes themselves.
@@ -113,6 +113,38 @@ standalone:
       past Zambian-election misinformation cases and returns structured
       verification report with tier, matching past examples, reasoning
       chain, further checks, and suggested draft response.
+
+  - slug: explain-podcast-studio
+    name: Explain Podcast Studio
+    repo: pauldevelopai/node-podcasting
+    visibility: public
+    status: build
+    current_version: 0.1.0
+    born: 2026-05-21
+    runs_on: laptop
+    storage: json-files
+    ai_providers:
+      - elevenlabs
+    default_models:
+      elevenlabs: eleven_turbo_v2_5
+    newsrooms_running: []
+    pilot_newsroom: explain
+    graduation_criteria:
+      newsrooms_using: 3
+      generated_podcasts: 50
+      podcast_accept_rate: 0.60
+    graduation_progress:
+      newsrooms_using: 0
+      generated_podcasts: 0
+      podcast_accept_rate: null
+    # TODO(paul): graduation_target, drive_docs (readme/build_log), and
+    # airtable_records (Prototypes record) — fill in once they exist.
+    description: >
+      Voice-cloning podcast studio. A journalist trains a voice from short
+      audio samples (ElevenLabs Instant Voice Cloning), then pastes a
+      transcript to generate an audio episode in that voice. Audio,
+      transcripts and keys stay on the laptop; only metadata (no
+      transcripts, audio, or keys) syncs to the cohort dashboard.
 
 # Nodes that have graduated into the GROUNDED monorepo.
 integrated: []
