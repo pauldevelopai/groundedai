@@ -1,0 +1,8 @@
+name = "grounded-telemetry"
+main = "worker.js"
+compatibility_date = "2026-05-01"
+
+# Public, non-secret config. Secrets (AIRTABLE_TOKEN, INBOUND_TOKEN) are set with
+# `wrangler secret put` — see README.md — and are NOT stored in this file.
+[vars]
+AIRTABLE_BASE = "app4FVlF4AAy8Q8s2"
