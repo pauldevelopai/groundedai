@@ -18,6 +18,18 @@ The two tracks (Tracker, Nodes) are independent and run **in parallel**. Both si
 3. **Node sync model** — **install-from-git / submodule**. The independent repos stay canonical; the monorepo runs the *latest* of each node online via the integrated host facade. Newsrooms still clone the same repos to run locally. One codebase, two runtimes.
 4. **Sequencing** — plan both now, build in parallel.
 
+## The product model: agents, Nodes, and the 5 tools (clarified 2026-05-25)
+
+This refines how the three pillars relate. It does **not** change the in-flight work (the host facade, submodules, and per-node migrations are substrate either way) — it sets where things *live* and how they couple.
+
+- **Builder composes workflows from the 8 agents.** The agents (Verifier, Social media listener, Archivist, Copywriter, Researcher, Translator, Audio & Video Producer, Digital News Gatherer — canonical list in [`AGENTS.md`](AGENTS.md)) are the journalism-work building blocks a newsroom arranges into a pipeline.
+- **Nodes is an open, growing directory of AI functions** newsrooms create and share. A Node is **mostly standalone** — used directly, run online or cloned to a laptop — *not* primarily a workflow step. This is the eventual marketplace: "all sorts of AI functions for newsrooms to create and share."
+- **The 5 shipped "tools" belong in the Nodes directory.** Fundraiser, Audience Analytics Manager, Operations Manager, AI Legal/Ethics/Regulation Tracker, and Digital Security Audit are newsroom *utilities* a team uses directly, usually **not** as part of a composed workflow. Conceptually they are Nodes Grounded ships with, not Builder agents. ("Tool" and "Node" are the same idea in Paul's vocabulary.)
+- **Optional agent↔Node coupling.** An agent *may* be backed by / "plugged into" a Node when they do the same job and can share info + infrastructure (e.g. the Verifier agent ↔ a verification Node). But **most Nodes are not linked to any agent**, and most workflows are just agents. Coupling is the exception, not the rule.
+- **Graduation, re-cast.** The registry's earlier `graduation_target: agent:*` framing (Node → agent) is reframed: a Node is a **first-class home in its own right**; an agent *optionally* plugs into a Node. "Graduation" becomes the special case where a Node's job mirrors a shipped agent — not the universal lifecycle. The `registry.yaml` + Airtable framing should be reconciled to this when the re-home below lands.
+
+**Re-home path (light, additive, reversible — NOT yet built; needs a confirm gate).** The 5 tools keep their working code exactly as-is: registered in [`lib/agents/registry.js`](../lib/agents/registry.js) with `category:'tool'`, their own standalone routes (`/security`, `/learning`, …), and still draggable into a Builder workflow when a newsroom wants that. The only change is **presentation**: list them as first-class entries in the Nodes directory (the N5 index) so newsrooms discover and use them *as Nodes*. No rewrite, no loss of Builder wiring. The heavier alternative — extracting each into its own runtime repo like makanday/capitalfm/podcasting — was explicitly **not** chosen (it rewrites working surfaces).
+
 ## Locked rules this plan respects
 
 - **Haiku 4.5 only** for `host.ai.chat` (the node host facade routes through `lib/claude.js`; nodes that use other providers, e.g. Podcasting/ElevenLabs, call those directly with their own keys — they don't touch `host.ai.chat`).
