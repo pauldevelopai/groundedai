@@ -42,9 +42,9 @@ export default async function Home() {
           desc="Compose and run AI workflows from prebuilt agents — the core Grounded platform."
         />
         <PillarCard
+          href="/nodes"
           title="Nodes"
           desc="Newsroom mini-apps. Run the latest online, or clone the repo to run on a laptop."
-          comingSoon
         />
         <PillarCard
           title="Tracker"
