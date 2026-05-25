@@ -11,6 +11,42 @@ Last updated 2026-05-11 after the Anchor → Grounded rename pass and the agent-
 
 ---
 
+## Node submodules — vendored via git (Track N, N2)
+
+The three Nodes are vendored as **git submodules** under `nodes/<slug>/`, pinned
+to a commit on each repo's `main`. The independent repos stay the source of
+truth; the monorepo runs the *latest* of each online via `lib/nodes/host.js`.
+Their `lib/*.js` is the only application code and targets the host interface
+(relative imports only — no external `require` in `lib/`), so the same code runs
+online here and standalone via `createLiteHost` on a laptop.
+
+| Submodule path | Repo |
+|---|---|
+| `nodes/makanday-analytics` | `pauldevelopai/node-makanday-analytics` |
+| `nodes/capitalfm-verifier` | `pauldevelopai/node-capitalfm-verifier` |
+| `nodes/podcasting` | `pauldevelopai/node-podcasting` |
+
+```bash
+# Fresh clone of the monorepo — pull the node code:
+git submodule update --init --recursive
+
+# Bump a node to the latest of its main (the canonical repo is the source of truth):
+git submodule update --remote nodes/makanday-analytics   # one node
+git submodule update --remote                             # all three
+git add nodes/<slug> && git commit -m "nodes: bump <slug> to <ref>"
+
+# Reverse N2 entirely:
+git submodule deinit -f nodes/<slug> && git rm nodes/<slug>
+```
+
+**Load-resolution status (N2 confirm gate):** `makanday-analytics` and
+`capitalfm-verifier` `lib/handlers.js` load clean in the monorepo with no extra
+deps. `podcasting/lib/handlers.js` `import`s `@elevenlabs/elevenlabs-js`
+directly (it calls ElevenLabs itself, not `host.ai.chat`) — that SDK must be
+added to the monorepo when podcasting is mounted online (N4), not before.
+
+---
+
 ## 0. What changed in this session (2026-05-05)
 
 1. **Pilot scope = the full PDF concept note (final agent spec, 2026-05-11 rename pass).** Only **WhatsApp delivery** and **Lightsail deploy** are post-pilot. Everything else — full Audio & Video Producer (audio + video + audiograms), full Translator (multi-model routing + glossary + edit feedback), inbound-only Digital News Gatherer (outbound posting moved conceptually to Copywriter — code lives under `lib/distribution/*`), full Operations Manager (incl. contributor mgmt), Audience Analytics Manager consultations (headline_test / angle_check / analytics_query — synthetic personas dropped 2026-05-07), the learning layer, the newsroom profile object — is **in pilot**.
