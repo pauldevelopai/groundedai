@@ -92,6 +92,21 @@ Goal: the AI Legal **nice front** is reachable at `/tracker`, backed by the full
 
 **Recommended mechanism (Phase T1):** run the Tracker **largely intact** as an internal service the Hub fronts, rather than hand-porting 60 tables of CRM + 30+ React pages into Next.js up front. The Vite SPA is preserved; the Express backend keeps working; we point both at the shared Postgres and unify auth. Native porting happens later, *selectively*, where the overlap catalogue says it pays. This is the additive, reversible, no-rewrite path. (If you'd rather port the public pages natively into Next from day one, that's a fork we take at T1 — flagged below.)
 
+> ### DECIDED Tracker scope — 2026-05-25 (supersedes the framing above)
+>
+> Two calls from Paul reshape this track:
+>
+> 1. **Tracker is absorbed *into* groundedai** — not vendored as a submodule and not run as a separate service. Its code comes into this repo and becomes part of grounded (on the shared Postgres + unified auth). (The Nodes model — separate canonical repos vendored in and cloned/updated by newsrooms — is the *opposite*, and confirmed.)
+> 2. **groundedai keeps everything.** No trimming of grounded's own features. The keep/drop exercise is **only about the tracker repo.**
+>
+> We do **not** import everything. Each Tracker feature is one of three things:
+>
+> - **KEEP → bring in** (only the Tracker has it; port it in): the **AI-Legal core + ingestion** — `lawsuits`, `regulations`, `usecases`, `legal-sources`, `public` + `public-html`, the scraper/triage ingestion pipeline (the tracker stays *live*), plus the public API `v1`, `user-submissions`, `subscriptions`, and the `intelligence` feed.
+> - **KEEP → merge** (grounded already has it; use grounded's, fold data later): Fundraising → grounded **Fundraiser**; AI-assistant/agents → grounded **agents + runner**; `knowledge` → **Archivist**; `auth` → grounded **session (H2)**; `dashboard`/`uploads`/`background-jobs`/`notifications`/`feedback` → grounded equivalents.
+> - **DROP** (gone): the old "Holly" **CRM/cohort/training** (`contacts`, `organisations`, `team-members`, `sectors`, `cohorts*`, `courses*`, `learning-*`, `assessment-questions`, `needs-assessments`, `service-engagements`, `engagement-*`, `participant-*`) and **outreach/comms** (`outreach-*`, `social-posts`, `newsletter`, `gmail`).
+>
+> **Schema effect (done):** `scripts/tracker/build-import.js` is now a strict allowlist — migration `039` imports **16 tables** (the 15 AI-Legal `ai_*` as-is + `tracker_industry_intelligence`), down from 59. FKs to dropped tables are stripped; the FTS + fan-out functions/triggers reference only kept tables. The remaining T1 work is bringing the AI-Legal **routes + SPA pages + ingestion** into grounded and mounting at `/tracker`.
+
 ### T0 — Schema lift (additive, partly namespaced)
 - Generate `db/migrations/039_tracker_import.sql` from the Tracker repo's SQL dump: AI-Legal core tables (`ai_*`, `ai_legal_*`) re-created **as-is**; CRM/operational tables re-created under the **`tracker_`** prefix; the legacy `migrations` table **excluded**. AI-Legal reference tables left global; CRM tables carry a nullable `newsroom_id` for later.
 - Load the data once via a one-shot import script (not a migration) so the 17 MB dump isn't replayed on every `npm run migrate`.
