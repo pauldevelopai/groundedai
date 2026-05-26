@@ -10,19 +10,36 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { existsSync } from 'node:fs';
 import config from './config.js';
 import publicRoutes from './routes/public.js';
 import publicHtmlRoutes from './routes/public-html.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLIENT_DIST = join(__dirname, '..', 'client', 'dist');
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
+app.get('/healthz', (req, res) => res.json({ ok: true, slice: 'ai-legal-public' }));
+
 app.use('/api/public', publicRoutes);
 app.use(publicHtmlRoutes); // SSR detail pages: /lawsuits/:id, /regulations/:id, …
 
-app.get('/healthz', (req, res) => res.json({ ok: true, slice: 'ai-legal-public' }));
+// Serve the built SPA (Vite base '/tracker/'). Static assets first, then a
+// catch-all so client-side routes (/legal/*) return index.html. Runs after the
+// API + SSR routes, so those win. `npm run build` in tracker/client populates dist.
+if (existsSync(CLIENT_DIST)) {
+  app.use(express.static(CLIENT_DIST));
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) return res.status(404).json({ message: 'Not found' });
+    res.sendFile(join(CLIENT_DIST, 'index.html'));
+  });
+}
 
 const port = config.port;
 app.listen(port, () => {

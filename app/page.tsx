@@ -47,9 +47,9 @@ export default async function Home() {
           desc="Newsroom mini-apps. Run the latest online, or clone the repo to run on a laptop."
         />
         <PillarCard
+          href="/tracker/legal"
           title="Tracker"
           desc="The AI Legal tracker — lawsuits, regulations, and use-cases across jurisdictions."
-          comingSoon
         />
       </div>
     </main>

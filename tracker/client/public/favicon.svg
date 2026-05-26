@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- AI Legal favicon: indigo rounded square with stylised "AL" wordmark above a thin gavel line. -->
+  <rect width="64" height="64" rx="12" fill="#4F46E5"/>
+  <!-- A + L wordmark, white, heavy weight -->
+  <text x="32" y="38" text-anchor="middle"
+        font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, sans-serif"
+        font-weight="800" font-size="28" fill="#FFFFFF" letter-spacing="-1">AL</text>
+  <!-- gavel line: a tiny horizontal bar below the wordmark representing a bench -->
+  <rect x="18" y="46" width="28" height="3" rx="1.5" fill="#FFFFFF" opacity="0.85"/>
+</svg>
