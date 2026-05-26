@@ -17,6 +17,9 @@ import config from './config.js';
 import publicRoutes from './routes/public.js';
 import publicHtmlRoutes from './routes/public-html.js';
 import usecasesRoutes from './routes/usecases.js';
+import lawsuitRoutes from './routes/lawsuits.js';
+import regulationRoutes from './routes/regulations.js';
+import legalSourcesRoutes from './routes/legal-sources.js';
 import { requireAuth } from './middleware/auth.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -36,6 +39,13 @@ app.use(publicHtmlRoutes); // SSR detail pages: /lawsuits/:id, /regulations/:id,
 // the clean, db-only admin route; the scraper-backed lawsuits/regulations admin
 // land with the ingestion stage (they share the scraper service surface).
 app.use('/api/usecases', requireAuth, usecasesRoutes);
+// Scraper-backed AI-Legal admin: CRUD + on-demand ingestion (lawsuits/regulations
+// scrape, legal-sources management). The puppeteer/rss/courtlistener scrapers run
+// on-demand from these routes; the nightly node-cron scheduler is intentionally
+// NOT auto-started here (avoid surprise scraping/cost) — run it explicitly if needed.
+app.use('/api/lawsuits', requireAuth, lawsuitRoutes);
+app.use('/api/regulations', requireAuth, regulationRoutes);
+app.use('/api/legal-sources', requireAuth, legalSourcesRoutes);
 
 // Serve the built SPA (Vite base '/tracker/'). Static assets first, then a
 // catch-all so client-side routes (/legal/*) return index.html. Runs after the
