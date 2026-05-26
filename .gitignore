@@ -54,3 +54,8 @@ storage/producer/*
 # Distributor credential-encryption key. In production set ANCHOR_DISTRIBUTION_KEY
 # explicitly; this file is the dev fallback. NEVER commit it.
 .grounded-distribution-key
+
+# Generated cohort-telemetry output (written by harvest/harvest.mjs) + generated
+# status reports — regenerable artifacts, not source.
+dashboard/data/
+docs/status/
