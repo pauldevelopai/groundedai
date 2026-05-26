@@ -4,7 +4,9 @@ export async function apiFetch(path, options = {}) {
   const timer = setTimeout(() => controller.abort(), timeout);
 
   try {
-    var res = await fetch(`/api${path}`, {
+    // Prefix with Vite's base so admin calls resolve under the mount point:
+    // '/tracker/api/...' integrated, '/api/...' standalone.
+    var res = await fetch(`${import.meta.env.BASE_URL}api${path}`, {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json', ...options.headers },
       signal: controller.signal,

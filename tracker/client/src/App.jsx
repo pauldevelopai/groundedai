@@ -91,6 +91,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/portal" element={<ParticipantPortal />} />
+          {/* Integrated landing: bare /tracker -> the public AI-Legal site. */}
+          <Route path="/" element={<Navigate to="/legal" replace />} />
 
           {/* ── Public AI Legal site (ailegal.co.za) — no auth required ── */}
           <Route path="/legal" element={<PublicLayout />}>
@@ -119,7 +121,7 @@ export default function App() {
 
               {/* ── Admin-only routes — non-admins are redirected to /lawsuits ── */}
               <Route element={<AdminRoute />}>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/contacts" element={<ContactsList />} />
                 <Route path="/contacts/:id" element={<ContactDetail />} />
                 <Route path="/organisations" element={<OrganisationsList />} />
