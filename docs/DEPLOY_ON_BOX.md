@@ -30,6 +30,10 @@ PORT=3006
 DATABASE_URL=postgresql://<pguser>:<pgpass>@localhost:5432/grounded
 JWT_SECRET=<random 32+ char string>
 ANTHROPIC_API_KEY=<your key>
+GROUNDED_LEAN=1   # LEAN deploy: keeps the 3 model-heavy agents (Archivist /
+                  # Translator / Producer) as "coming soon" so the multi-GB local
+                  # AI models never download. Remove this (and size up the box)
+                  # to enable them later. Override the set with GROUNDED_COMING_SOON.
 # Optional availability fallback if you run Ollama on the box:
 # GROUNDED_OLLAMA_FALLBACK_URL=http://localhost:11434
 # GROUNDED_OLLAMA_FALLBACK_MODEL=gemma3:12b
