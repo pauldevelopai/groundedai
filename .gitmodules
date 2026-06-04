@@ -1,0 +1,9 @@
+[submodule "nodes/makanday-analytics"]
+	path = nodes/makanday-analytics
+	url = https://github.com/pauldevelopai/node-makanday-analytics.git
+[submodule "nodes/capitalfm-verifier"]
+	path = nodes/capitalfm-verifier
+	url = https://github.com/pauldevelopai/node-capitalfm-verifier.git
+[submodule "nodes/podcasting"]
+	path = nodes/podcasting
+	url = https://github.com/pauldevelopai/node-podcasting.git

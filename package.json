@@ -12,6 +12,7 @@
     "seed": "node db/seed.js",
     "seed:pilots": "node db/seed-pilots.js",
     "worker": "node scripts/jobs/worker.js",
+    "tracker": "node tracker/server/index.js",
     "lint": "next lint",
     "test": "node --test --test-concurrency=1 --test-reporter=spec 'tests/**/*.test.js'"
   },

@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /login
+Disallow: /register
+Disallow: /admin
+Disallow: /legal-sources
+Disallow: /intelligence
+Disallow: /newsletter
+Disallow: /api/
+
+Sitemap: https://ailegal.co.za/sitemap.xml

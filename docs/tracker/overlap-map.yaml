@@ -1,0 +1,258 @@
+# Tracker ⇄ GROUNDED overlap map
+# ─────────────────────────────────────────────────────────────────────────
+# Machine-readable catalogue of where the imported Tracker schema (the legacy
+# "AI Legal" app — the prior brand is retired) overlaps GROUNDED's existing
+# schema. Generated during the Hub/Tracker/Nodes integration planning pass
+# (2026-05-22). Decision: import EVERYTHING from the Tracker app, but defer
+# reconciliation — flag the overlaps here so a later Claude Code pass can
+# dedupe table-by-table without re-discovering them.
+#
+# NAMING (no legacy branding survives anywhere):
+#   - AI-Legal core tables (ai_*, ai_legal_*) import AS-IS — verified zero
+#     name collision with GROUNDED's 70 tables.
+#   - CRM / operational tables import under a `tracker_` prefix. This resolves
+#     the only hard collision (`funders`) and namespaces them under the
+#     Tracker pillar without clashing with the existing tracker_use_cases /
+#     tracker_relationships / tracker_digests shell tables.
+#   - The Tracker app's own `migrations` table is NEVER imported (GROUNDED's
+#     db/migrate.js owns public.migrations).
+#   - AI-Legal reference data (lawsuits/regulations/usecases) is GLOBAL
+#     (newsroom_id IS NULL), matching GROUNDED's cohort-wide tracker_digests
+#     precedent. CRM/operator tables get a newsroom_id when reconciled.
+#
+# overlap:  none | low | medium | high
+# action:   keep-separate | dedupe-later | merge-into-grounded | drop | do-not-import
+# status:   deferred  (nothing is reconciled yet; this is a backlog)
+# ─────────────────────────────────────────────────────────────────────────
+
+version: 2
+generated: 2026-05-22
+maintainer: paul@developai.co.za
+naming:
+  ai_legal_core: as-is        # ai_*, ai_legal_* — no collision
+  crm: tracker_ prefix        # e.g. funders -> tracker_funders
+do_not_import:
+  - migrations                # collides with GROUNDED public.migrations (db/migrate.js)
+
+# ── AI Legal core (the public Tracker — the "great front" data) ────────────
+# Imported as-is (no prefix); these names are already unique in GROUNDED.
+ai_legal_core:
+  - table: ai_lawsuits
+    imported_as: ai_lawsuits
+    grounded_equivalent: [tracker_use_cases, tracker_relationships, learning_updates]
+    overlap: high
+    collision: false
+    action: dedupe-later
+    status: deferred
+    note: >
+      GROUNDED's tracker_* tables + learning_updates are a lighter Next-native
+      reimplementation of this. ai_lawsuits is the real backing store.
+      Later: make the imported tables canonical, retire the shell or repoint it.
+  - table: ai_lawsuit_events
+    imported_as: ai_lawsuit_events
+    grounded_equivalent: []
+    overlap: low
+    action: keep-separate
+    status: deferred
+  - table: ai_regulations
+    imported_as: ai_regulations
+    grounded_equivalent: [tracker_use_cases, learning_updates]
+    overlap: high
+    action: dedupe-later
+    status: deferred
+    note: GlobalNav already lists "Ethics & Regulation Tracker" as a tool stub.
+  - table: ai_regulation_events
+    imported_as: ai_regulation_events
+    grounded_equivalent: []
+    overlap: low
+    action: keep-separate
+    status: deferred
+  - table: ai_legal_usecases
+    imported_as: ai_legal_usecases
+    grounded_equivalent: [tracker_use_cases]
+    overlap: high
+    collision: false
+    action: dedupe-later
+    status: deferred
+  - table: ai_legal_raw_items
+    imported_as: ai_legal_raw_items
+    grounded_equivalent: [research_documents, research_crawl_jobs]
+    overlap: medium
+    action: keep-separate
+    status: deferred
+    note: The Tracker's ingest/triage pipeline is richer; GROUNDED's research crawler is newer.
+  - table: ai_legal_sources
+    imported_as: ai_legal_sources
+    grounded_equivalent: [social_sources, research_dossiers]
+    overlap: medium
+    action: keep-separate
+    status: deferred
+  - table: ai_legal_source_runs
+    imported_as: ai_legal_source_runs
+    grounded_equivalent: [research_crawl_jobs]
+    overlap: low
+    action: keep-separate
+    status: deferred
+  - table: ai_legal_source_mentions
+    imported_as: ai_legal_source_mentions
+    grounded_equivalent: []
+    overlap: none
+    action: keep-separate
+    status: deferred
+  - table: ai_legal_insights
+    imported_as: ai_legal_insights
+    grounded_equivalent: []
+    overlap: low
+    action: keep-separate
+    status: deferred
+  - table: ai_legal_subscriptions
+    imported_as: ai_legal_subscriptions
+    grounded_equivalent: [learning_update_acknowledgements]
+    overlap: low
+    action: keep-separate
+    status: deferred
+  - table: ai_legal_notifications
+    imported_as: ai_legal_notifications
+    grounded_equivalent: []
+    overlap: low
+    action: keep-separate
+    status: deferred
+  - table: ai_legal_user_submissions
+    imported_as: ai_legal_user_submissions
+    grounded_equivalent: [inbound_submissions]
+    overlap: medium
+    action: dedupe-later
+    status: deferred
+  - table: ai_legal_api_keys
+    imported_as: ai_legal_api_keys
+    grounded_equivalent: [archive_newsroom_keys, distribution_credentials]
+    overlap: low
+    action: keep-separate
+    status: deferred
+    note: Public versioned API (v1) keys — distinct purpose from internal creds.
+
+# ── CRM / operational (imported under `tracker_` prefix) ───────────────────
+# Overlaps GROUNDED's own product sections; reconcile later.
+crm:
+  - table: contacts
+    imported_as: tracker_contacts
+    grounded_equivalent: [community_contributors, freelancers, users]
+    overlap: medium
+    action: dedupe-later
+    status: deferred
+  - table: organisations
+    imported_as: tracker_organisations
+    grounded_equivalent: [newsrooms]
+    overlap: medium
+    action: dedupe-later
+    status: deferred
+  - table: sectors
+    imported_as: tracker_sectors
+    grounded_equivalent: []
+    overlap: none
+    action: keep-separate
+    status: deferred
+  - table: [cohorts, cohort_participants, cohort_courses, cohort_sessions]
+    imported_as: tracker_cohorts*
+    grounded_equivalent: [fundraiser_cohort_matches, "mentorship section", "learning section"]
+    overlap: high
+    action: dedupe-later
+    status: deferred
+    note: GROUNDED has mentorship + learning sections; cohort concept overlaps.
+  - table: [courses, course_modules, learning_outcomes, learning_tasks, learning_journeys]
+    imported_as: tracker_courses* / tracker_learning_*
+    grounded_equivalent: [learning_updates, "learning section"]
+    overlap: high
+    action: dedupe-later
+    status: deferred
+  - table: [needs_assessments, assessment_questions]
+    imported_as: tracker_needs_assessments / tracker_assessment_questions
+    grounded_equivalent: []
+    overlap: low
+    action: keep-separate
+    status: deferred
+  - table: [generated_documents, document_templates, uploaded_documents]
+    imported_as: tracker_generated_documents / tracker_document_templates / tracker_uploaded_documents
+    grounded_equivalent: [archive_documents, output_edits]
+    overlap: medium
+    action: dedupe-later
+    status: deferred
+  - table: [service_engagements, engagement_sessions, engagement_milestones]
+    imported_as: tracker_service_engagements*
+    grounded_equivalent: []
+    overlap: low
+    action: keep-separate
+    status: deferred
+  - table: [outreach_campaigns, outreach_messages, social_posts]
+    imported_as: tracker_outreach_* / tracker_social_posts
+    grounded_equivalent: [social_signals, social_listener_briefs, distribution_sends, distributor_briefs]
+    overlap: medium
+    action: dedupe-later
+    status: deferred
+  - table: [funders, funding_opportunities, funding_applications, funding_reports]
+    imported_as: tracker_funders / tracker_funding_*
+    grounded_equivalent: [funders, fundraiser_briefs, fundraiser_cohort_matches]
+    overlap: high
+    collision: true            # `funders` collides — the prefix resolves it
+    action: dedupe-later
+    status: deferred
+    note: >
+      NAME COLLISION on `funders` -> imported as tracker_funders. GROUNDED's
+      fundraiser section is the strategic owner; the Tracker's funding pipeline
+      is richer operationally. High-value dedupe candidate.
+  - table: [team_members, gmail_tokens]
+    imported_as: tracker_team_members / tracker_gmail_tokens
+    grounded_equivalent: [users]
+    overlap: high
+    action: merge-into-grounded
+    status: deferred
+    note: >
+      Auth unifies on GROUNDED's users + anchor_token session. team_members
+      becomes a profile/role extension of users, not a parallel identity store.
+      Handled partly up-front by the auth bridge (plan Track H, step H2).
+  - table: [knowledge_entries, knowledge_tags]
+    imported_as: tracker_knowledge_entries / tracker_knowledge_tags
+    grounded_equivalent: [archive_documents, archive_chunks, archive_entities, archive_relationships]
+    overlap: high
+    action: dedupe-later
+    status: deferred
+    note: Both use pgvector-style embeddings. GROUNDED archive is the strategic owner.
+  - table: [background_jobs, job_runs]
+    imported_as: tracker_background_jobs / tracker_job_runs
+    grounded_equivalent: [workflow_runs, workflow_executions, "pg-boss queues"]
+    overlap: medium
+    action: dedupe-later
+    status: deferred
+    note: GROUNDED uses pg-boss; the Tracker uses node-cron. Consolidate schedulers later.
+  - table: notifications
+    imported_as: tracker_notifications
+    grounded_equivalent: [learning_update_acknowledgements]
+    overlap: low
+    action: keep-separate
+    status: deferred
+  - table: [industry_intelligence, intelligence_sources]
+    imported_as: tracker_industry_intelligence / tracker_intelligence_sources
+    grounded_equivalent: [research_findings, research_dossiers]
+    overlap: medium
+    action: dedupe-later
+    status: deferred
+  - table: [agent_conversations, agent_actions, ai_conversations, ai_interactions]
+    imported_as: tracker_agent_* / tracker_ai_*
+    grounded_equivalent: [workflow_executions, agentic_invocations, api_costs]
+    overlap: high
+    action: dedupe-later
+    status: deferred
+    note: >
+      The Tracker has its own agent/chat layer; GROUNDED has the agent registry +
+      agentic_invocations + api_costs cost logging. Reconcile so all AI spend
+      lands in api_costs.
+  - table: feedback
+    imported_as: tracker_feedback
+    grounded_equivalent: ["node runtime feedback (host.feedback)"]
+    overlap: low
+    action: keep-separate
+    status: deferred
+
+# Junction/bridge tables not listed individually follow their parent entity's
+# action and prefix. Anything discovered during the actual lift that isn't here
+# should be appended with status: deferred.
